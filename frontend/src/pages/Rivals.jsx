@@ -1,31 +1,34 @@
 /**
- * Rivals — Competitor intelligence page with error state.
+ * Rivals — Competitor genome intelligence page.
+ * Phase 2: Replaced basic list with rich CompetitorGenomeCard cards
+ * fetched from the /genomes API.
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { getCompetitors } from '../services/api';
+import CompetitorGenomeCard from '../components/CompetitorGenomeCard';
+import { getCompetitorGenomes } from '../services/api';
 
 export default function Rivals() {
-  const [competitors, setCompetitors] = useState([]);
+  const [genomes, setGenomes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchCompetitors = useCallback(async () => {
+  const fetchGenomes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getCompetitors();
-      setCompetitors(res.data);
+      const res = await getCompetitorGenomes();
+      setGenomes(res.data);
     } catch (err) {
-      setError('Failed to load competitor data.');
+      setError('Failed to load competitor genome data.');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchCompetitors();
-  }, [fetchCompetitors]);
+    fetchGenomes();
+  }, [fetchGenomes]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -34,7 +37,7 @@ export default function Rivals() {
           👁️ <span>Rivals</span>
         </h1>
         <p className="text-xs text-[var(--color-ooda-text-dim)] mt-1">
-          Tracked competitors and their intelligence profiles
+          Competitive genome profiles — threat level, activity, and pricing intel
         </p>
       </div>
 
@@ -49,7 +52,7 @@ export default function Rivals() {
           <div className="card" style={{ borderColor: 'var(--color-threat)' }}>
             <p className="text-sm text-[var(--color-threat)]">⚠ {error}</p>
             <button
-              onClick={fetchCompetitors}
+              onClick={fetchGenomes}
               className="mt-2 text-xs text-[var(--color-ooda-accent)] hover:underline"
             >
               Retry →
@@ -57,7 +60,7 @@ export default function Rivals() {
           </div>
         )}
 
-        {!loading && !error && competitors.length === 0 && (
+        {!loading && !error && genomes.length === 0 && (
           <div className="card text-center py-8">
             <p className="text-[var(--color-ooda-text-dim)] text-sm">
               No competitors tracked yet. Seed demo data first.
@@ -65,48 +68,44 @@ export default function Rivals() {
           </div>
         )}
 
-        {!loading && !error && competitors.length > 0 && (
-          <div className="flex flex-col gap-3">
-            {competitors.map((comp) => (
-              <div key={comp.id} className="card">
-                <div className="flex items-center gap-3">
-                  {/* Avatar */}
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[var(--color-threat)] to-[var(--color-warning)] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {comp.name?.charAt(0) || '?'}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold truncate">{comp.name}</h3>
-                    <p className="text-xs text-[var(--color-ooda-text-dim)] truncate">
-                      {comp.category || 'Uncategorized'}
-                    </p>
-                  </div>
-
-                  {/* External link */}
-                  {comp.website_url && (
-                    <a
-                      href={comp.website_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[var(--color-ooda-accent)] hover:underline flex-shrink-0"
-                    >
-                      Visit →
-                    </a>
-                  )}
+        {!loading && !error && genomes.length > 0 && (
+          <div className="flex flex-col gap-4">
+            {/* Summary Stats */}
+            <div className="flex gap-3">
+              <div className="card flex-1 text-center py-3">
+                <div className="text-lg font-bold font-mono text-[var(--color-ooda-accent)]">
+                  {genomes.length}
                 </div>
+                <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">
+                  Tracked
+                </div>
+              </div>
+              <div className="card flex-1 text-center py-3">
+                <div className="text-lg font-bold font-mono text-[var(--color-threat)]">
+                  {genomes.filter((g) => g.threat_level === 'CRITICAL' || g.threat_level === 'HIGH').length}
+                </div>
+                <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">
+                  High Threat
+                </div>
+              </div>
+              <div className="card flex-1 text-center py-3">
+                <div className="text-lg font-bold font-mono text-[var(--color-ooda-text-muted)]">
+                  {genomes.reduce((sum, g) => sum + g.total_signals, 0)}
+                </div>
+                <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">
+                  Total Signals
+                </div>
+              </div>
+            </div>
 
-                {/* Pricing URL */}
-                {comp.pricing_url && (
-                  <div className="mt-3 pt-3 border-t border-[var(--color-ooda-border)]">
-                    <span className="text-xs text-[var(--color-ooda-text-dim)]">
-                      Pricing tracked:{' '}
-                      <span className="text-[var(--color-ooda-accent)] font-mono break-all">
-                        {comp.pricing_url}
-                      </span>
-                    </span>
-                  </div>
-                )}
+            {/* Genome Cards */}
+            {genomes.map((genome, i) => (
+              <div
+                key={genome.competitor_id}
+                className="animate-fade-in"
+                style={{ animationDelay: `${(i + 1) * 0.1}s` }}
+              >
+                <CompetitorGenomeCard genome={genome} />
               </div>
             ))}
           </div>

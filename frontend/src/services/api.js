@@ -1,6 +1,7 @@
 /**
  * OODA API Service
  * Centralized API client for all backend endpoints.
+ * Phase 2: Added genome and entropy component APIs.
  */
 
 import axios from 'axios';
@@ -23,10 +24,14 @@ export const triggerPriceDrop = () => api.post('/demo/trigger-price-drop');
 export const getSignals = (limit = 50) => api.get(`/signals?limit=${limit}`);
 export const getSignal = (id) => api.get(`/signals/${id}`);
 export const createSignal = (data) => api.post('/signals', data);
+export const classifySignal = (id) => api.get(`/signals/${id}/classify`);
 
 // ── Entropy ─────────────────────────────────────────────────────────────────────
 
-export const getCurrentEntropy = () => api.get('/entropy/current');
+export const getCurrentEntropy = (windowHours) =>
+  api.get('/entropy/current', { params: windowHours ? { window_hours: windowHours } : {} });
+export const getEntropyComponents = (windowHours) =>
+  api.get('/entropy/components', { params: windowHours ? { window_hours: windowHours } : {} });
 export const getEntropyHistory = () => api.get('/entropy/history');
 
 // ── Agents ──────────────────────────────────────────────────────────────────────
@@ -52,5 +57,7 @@ export const deployPackage = (id) => api.post(`/counter-strike/${id}/deploy`);
 
 export const getCompetitors = () => api.get('/competitors');
 export const getCompetitor = (id) => api.get(`/competitors/${id}`);
+export const getCompetitorGenomes = () => api.get('/competitors/genomes');
+export const getCompetitorGenome = (id) => api.get(`/competitors/${id}/genome`);
 
 export default api;

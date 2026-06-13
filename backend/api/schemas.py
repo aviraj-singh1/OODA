@@ -151,14 +151,3 @@ class EntropyScoreResponse(BaseModel):
     components: dict
 
 
-# ── Legacy aliases (keep for any internal code still referencing *Out names) ──
-# These will be removed in Phase 2 once all routes are updated.
-
-CompetitorOut = CompetitorResponse
-SignalOut = SignalResponse
-AgentVerdictOut = AgentVerdictResponse
-DebateOut = DebateResponse
-CounterStrikePackageOut = CounterStrikePackageResponse
-AgentReputationOut = AgentReputationResponse
-StatusResponse = APIMessageResponse
-EntropyScoreOut = EntropyScoreResponse

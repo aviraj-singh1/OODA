@@ -64,8 +64,8 @@ ooda/
 ## Development Phases
 
 - [x] Phase 0 — Project foundation
-- [ ] Phase 1 — Backend data models & seed APIs
-- [ ] Phase 2 — Entropy engine
+- [x] Phase 1 — Backend data models & seed APIs
+- [x] Phase 2 — Entropy engine
 - [ ] Phase 3 — Agent system
 - [ ] Phase 4 — Debate engine
 - [ ] Phase 5 — Counter-Strike engine

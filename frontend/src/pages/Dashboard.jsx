@@ -1,13 +1,16 @@
 /**
  * Dashboard — Main command center.
- * Shows Market Entropy gauge, signal feed, agent status, and quick actions.
+ * Shows Market Entropy gauge + breakdown, signal feed, agent status, and quick actions.
+ * Phase 2: Added EntropyBreakdown component and link to Entropy deep-dive.
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import EntropyGauge from '../components/EntropyGauge';
+import EntropyBreakdown from '../components/EntropyBreakdown';
 import SignalFeed from '../components/SignalFeed';
 import StatusBadge from '../components/StatusBadge';
-import { getSignals, getCurrentEntropy, getReputations, seedDemo, triggerPriceDrop } from '../services/api';
+import { getSignals, getCurrentEntropy, getEntropyComponents, getReputations, seedDemo, triggerPriceDrop } from '../services/api';
 
 // Static agent metadata — codenames and colors don't change
 const AGENT_META = {
@@ -26,12 +29,14 @@ const DEFAULT_REPUTATIONS = Object.entries(AGENT_META).map(([name]) => ({
 export default function Dashboard() {
   const [signals, setSignals] = useState([]);
   const [entropy, setEntropy] = useState(null);
+  const [components, setComponents] = useState(null);
   const [reputations, setReputations] = useState(DEFAULT_REPUTATIONS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [seeding, setSeeding] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [toast, setToast] = useState(null);
+  const navigate = useNavigate();
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -42,13 +47,15 @@ export default function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [sigRes, entRes, repRes] = await Promise.all([
+      const [sigRes, entRes, compRes, repRes] = await Promise.all([
         getSignals(),
         getCurrentEntropy(),
+        getEntropyComponents(),
         getReputations(),
       ]);
       setSignals(sigRes.data);
       setEntropy(entRes.data);
+      setComponents(compRes.data);
       if (repRes.data?.length) setReputations(repRes.data);
     } catch (err) {
       setError('Backend unreachable. Is the server running on port 8000?');
@@ -167,8 +174,25 @@ export default function Dashboard() {
 
       {/* Entropy Gauge */}
       <div className="animate-fade-in animate-delay-2">
-        {entropy && <EntropyGauge score={entropy.score} reason={entropy.reason} />}
+        {entropy && (
+          <div>
+            <EntropyGauge score={entropy.score} reason={entropy.reason} />
+            <button
+              onClick={() => navigate('/entropy')}
+              className="w-full mt-2 text-xs text-center text-[var(--color-ooda-accent)] hover:underline py-1"
+            >
+              View full entropy analysis →
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Entropy Component Breakdown — uses structured components with weights */}
+      {components?.components && (
+        <div className="animate-fade-in animate-delay-3">
+          <EntropyBreakdown components={components.components} />
+        </div>
+      )}
 
       {/* Agent Status — live from API */}
       <div className="card animate-fade-in animate-delay-3">
@@ -223,3 +247,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

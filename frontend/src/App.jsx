@@ -1,6 +1,7 @@
 /**
  * OODA — App Root
  * Observe → Orient → Decide → Act
+ * Phase 2: Added /entropy route.
  */
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -10,6 +11,7 @@ import Signals from './pages/Signals';
 import Debate from './pages/Debate';
 import CounterStrike from './pages/CounterStrike';
 import Rivals from './pages/Rivals';
+import EntropyPage from './pages/EntropyPage';
 
 export default function App() {
   return (
@@ -20,6 +22,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/signals" element={<Signals />} />
+            <Route path="/entropy" element={<EntropyPage />} />
             <Route path="/debate" element={<Debate />} />
             <Route path="/counter-strike" element={<CounterStrike />} />
             <Route path="/rivals" element={<Rivals />} />

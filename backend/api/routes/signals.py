@@ -1,5 +1,6 @@
 """
 Signal Routes — Fetch and create competitive signals.
+Phase 2: Integrated signal classifier for auto-classification on creation.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.database.models import get_db
 from backend.database import crud
 from backend.api.schemas import SignalResponse, SignalCreate
+from backend.intelligence.signal_classifier import classify_signal
 
 router = APIRouter(prefix="/api/signals", tags=["Signals"])
 
@@ -47,9 +49,29 @@ def get_signal(signal_id: str, db: Session = Depends(get_db)):
     return _enrich(signal)
 
 
+@router.get("/{signal_id}/classify")
+def classify_signal_by_id(signal_id: str, db: Session = Depends(get_db)):
+    """Classify an existing signal and return its classification details."""
+    signal = crud.get_signal(db, signal_id)
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+
+    classification = classify_signal(
+        signal_type=signal.signal_type,
+        severity=signal.severity,
+        percentage_change=signal.percentage_change,
+    )
+    return classification.to_dict()
+
+
 @router.post("", response_model=SignalResponse, status_code=201)
 def create_signal(payload: SignalCreate, db: Session = Depends(get_db)):
-    """Create a new signal manually."""
+    """
+    Create a new signal manually.
+    Auto-classifies severity using the signal classifier — if the classifier
+    escalates severity (e.g. due to large percentage change), the escalated
+    severity is stored.
+    """
     # Validate competitor exists if provided
     if payload.competitor_id:
         comp = crud.get_competitor(db, payload.competitor_id)
@@ -58,6 +80,13 @@ def create_signal(payload: SignalCreate, db: Session = Depends(get_db)):
                 status_code=404,
                 detail=f"Competitor '{payload.competitor_id}' not found",
             )
+
+    # Auto-classify: may escalate severity based on percentage_change
+    classification = classify_signal(
+        signal_type=payload.signal_type,
+        severity=payload.severity,
+        percentage_change=payload.percentage_change,
+    )
 
     signal = crud.create_signal(
         db,
@@ -70,7 +99,7 @@ def create_signal(payload: SignalCreate, db: Session = Depends(get_db)):
         old_value=payload.old_value,
         new_value=payload.new_value,
         percentage_change=payload.percentage_change,
-        severity=payload.severity,
+        severity=classification.severity,  # Use classifier's potentially-escalated severity
     )
     return _enrich(signal)
 

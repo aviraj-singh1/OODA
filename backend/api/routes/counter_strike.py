@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database.models import get_db
 from backend.database import crud
-from backend.api.schemas import CounterStrikePackageOut, StatusResponse
+from backend.api.schemas import CounterStrikePackageResponse, APIMessageResponse
 
 router = APIRouter(prefix="/api/counter-strike", tags=["Counter-Strike"])
 
@@ -17,7 +17,7 @@ def build_package(signal_id: str):
     return {"status": "pending", "message": "Counter-Strike engine not yet implemented. Coming in Phase 5."}
 
 
-@router.get("/latest", response_model=CounterStrikePackageOut)
+@router.get("/latest", response_model=CounterStrikePackageResponse)
 def get_latest_package(db: Session = Depends(get_db)):
     """Get the most recent counter-strike package."""
     pkg = crud.get_latest_package(db)
@@ -26,7 +26,7 @@ def get_latest_package(db: Session = Depends(get_db)):
     return pkg
 
 
-@router.get("/{package_id}", response_model=CounterStrikePackageOut)
+@router.get("/{package_id}", response_model=CounterStrikePackageResponse)
 def get_package(package_id: str, db: Session = Depends(get_db)):
     """Get a specific package by ID."""
     pkg = crud.get_package(db, package_id)
@@ -35,23 +35,13 @@ def get_package(package_id: str, db: Session = Depends(get_db)):
     return pkg
 
 
-@router.post("/{package_id}/deploy", response_model=StatusResponse)
+@router.post("/{package_id}/deploy", response_model=APIMessageResponse)
 def deploy_package(package_id: str, db: Session = Depends(get_db)):
     """Simulate deployment of a counter-strike package."""
     pkg = crud.deploy_package(db, package_id)
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
-    return StatusResponse(
+    return APIMessageResponse(
         status="success",
-        message="Counter-Strike deployed (simulated).",
-        data={
-            "package_id": package_id,
-            "actions": [
-                "Retention email prepared",
-                "Sales battlecard exported",
-                "Internal alert generated",
-                "Social response queued",
-                "Deployment simulated successfully",
-            ],
-        },
+        message=f"Counter-Strike package {package_id} deployed successfully.",
     )

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database.models import get_db
 from backend.database import crud
-from backend.api.schemas import DebateOut
+from backend.api.schemas import DebateResponse
 
 router = APIRouter(prefix="/api/debate", tags=["Debate"])
 
@@ -17,7 +17,7 @@ def run_debate(signal_id: str):
     return {"status": "pending", "message": "Debate engine not yet implemented. Coming in Phase 4."}
 
 
-@router.get("/latest", response_model=DebateOut)
+@router.get("/latest", response_model=DebateResponse)
 def get_latest_debate(db: Session = Depends(get_db)):
     """Get the most recent debate."""
     debate = crud.get_latest_debate(db)
@@ -26,7 +26,7 @@ def get_latest_debate(db: Session = Depends(get_db)):
     return debate
 
 
-@router.get("/{debate_id}", response_model=DebateOut)
+@router.get("/{debate_id}", response_model=DebateResponse)
 def get_debate(debate_id: str, db: Session = Depends(get_db)):
     """Get a specific debate by ID."""
     debate = crud.get_debate(db, debate_id)

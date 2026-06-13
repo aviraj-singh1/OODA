@@ -292,3 +292,115 @@ body {
 .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
 .animate-delay-3 { animation-delay: 0.3s; opacity: 0; }
 .animate-delay-4 { animation-delay: 0.4s; opacity: 0; }
+.animate-delay-5 { animation-delay: 0.5s; opacity: 0; }
+
+/* ── Entropy Breakdown Bars ──────────────────────────────────────────────────── */
+
+@keyframes bar-fill {
+  from { width: 0%; }
+}
+
+.entropy-bar-fill {
+  animation: bar-fill 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: width 0.6s ease;
+}
+
+.entropy-bar-track {
+  background: var(--color-ooda-surface-elevated);
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.entropy-bar-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 50%, rgba(255, 255, 255, 0.03) 50%);
+  background-size: 6px 100%;
+}
+
+/* ── Threat Level Indicator ──────────────────────────────────────────────────── */
+
+.threat-indicator {
+  position: relative;
+  padding-left: 14px;
+}
+
+.threat-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 2px;
+}
+
+.threat-critical::before { background: var(--color-threat); box-shadow: 0 0 8px var(--color-threat-glow); }
+.threat-high::before { background: var(--color-warning); box-shadow: 0 0 8px var(--color-warning-glow); }
+.threat-medium::before { background: #f59e0b; }
+.threat-low::before { background: var(--color-stable); }
+.threat-dormant::before { background: var(--color-neutral); }
+
+/* ── Genome Stat Grid ────────────────────────────────────────────────────────── */
+
+.genome-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--color-ooda-surface-elevated);
+  border: 1px solid var(--color-ooda-border);
+}
+
+.genome-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.genome-stat-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ooda-text-dim);
+}
+
+/* ── Timeline ────────────────────────────────────────────────────────────────── */
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-ooda-border-bright);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: -20px;
+  width: 2px;
+  background: var(--color-ooda-border);
+  z-index: 1;
+}
+
+/* ── Activity Ring ───────────────────────────────────────────────────────────── */
+
+@keyframes ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.25); }
+  50% { box-shadow: 0 0 0 6px rgba(0, 212, 255, 0); }
+}
+
+.activity-ring {
+  animation: ring-pulse 3s ease-in-out infinite;
+}

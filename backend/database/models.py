@@ -17,7 +17,7 @@ Base = declarative_base()
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
-    echo=settings.DEBUG,
+    echo=False,  # Set SQL_ECHO=true in .env to enable SQL logging (echo=True crashes on Unicode)
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

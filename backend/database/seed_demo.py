@@ -3,7 +3,7 @@ OODA Seed Demo Data
 Pre-built demo scenario: RivalFlow drops pricing from ₹999 to ₹749.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.database.models import SessionLocal
 from backend.database import crud
 
@@ -14,7 +14,7 @@ DEMO_COMPETITOR = {
     "website_url": "https://rivalflow.io",
     "pricing_url": "https://rivalflow.io/pricing",
     "category": "Marketing Automation",
-    "created_at": datetime.now().isoformat(),
+    "created_at": datetime.now(timezone.utc).isoformat(),
 }
 
 DEMO_SIGNALS = [
@@ -85,7 +85,7 @@ def seed_demo_data():
             crud.create_signal(db, **sig)
 
         # Seed reputations in a single pass (no double round-trip)
-        now = datetime.now().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         for rep in DEMO_REPUTATIONS:
             from backend.database.models import AgentReputation
             db_rep = AgentReputation(
