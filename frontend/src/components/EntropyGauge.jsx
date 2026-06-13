@@ -1,132 +1,102 @@
 /**
- * EntropyGauge — Circular Market Entropy Score display.
+ * EntropyGauge — Phase 6: Clean, centered, readable gauge.
  */
 
 import { useEffect, useState } from 'react';
 
-const RADIUS = 54;
+const RADIUS = 52;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-function getEntropyColor(score) {
+function getColor(score) {
   if (score >= 81) return 'var(--color-threat)';
   if (score >= 61) return 'var(--color-warning)';
-  if (score >= 31) return '#f59e0b'; // amber-500, consistent with agent-sales
+  if (score >= 31) return '#f59e0b';
   return 'var(--color-stable)';
 }
 
-function getEntropyStatus(score) {
-  if (score >= 81) return 'CRITICAL';
-  if (score >= 61) return 'HIGH VOLATILITY';
-  if (score >= 31) return 'WATCH';
-  return 'STABLE';
+function getStatus(score) {
+  if (score >= 81) return 'Critical';
+  if (score >= 61) return 'High Volatility';
+  if (score >= 31) return 'Watch';
+  return 'Stable';
 }
 
-export default function EntropyGauge({ score = 0, reason = '' }) {
-  const [animatedScore, setAnimatedScore] = useState(0);
+export default function EntropyGauge({ score = 0, reason = '', status }) {
+  const [anim, setAnim] = useState(0);
 
-  // Smooth count-up animation
   useEffect(() => {
-    if (score === 0) { setAnimatedScore(0); return; }
-    const duration = 1000;
+    if (score === 0) { setAnim(0); return; }
+    const dur = 900;
     const start = performance.now();
-    const from = animatedScore;
-    const to = score;
-
+    const from = 0;
     const step = (now) => {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      setAnimatedScore(Math.round(from + (to - from) * eased));
-      if (progress < 1) requestAnimationFrame(step);
+      const p = Math.min((now - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setAnim(Math.round(from + (score - from) * eased));
+      if (p < 1) requestAnimationFrame(step);
     };
     const raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score]);
 
-  const progress = (animatedScore / 100) * CIRCUMFERENCE;
-  const offset = CIRCUMFERENCE - progress;
-  const color = getEntropyColor(score);
-  const status = getEntropyStatus(score);
+  const offset = CIRCUMFERENCE - (anim / 100) * CIRCUMFERENCE;
+  const color = getColor(score);
+  const label = status || getStatus(score);
 
   return (
-    <div className="card flex flex-col items-center gap-4 p-6 relative overflow-hidden">
-      {/* Subtle glow behind gauge */}
+    <div className="card flex flex-col items-center py-6 relative overflow-hidden">
+      {/* Subtle glow */}
       <div
-        className="absolute inset-0 opacity-10 blur-3xl"
-        style={{ background: `radial-gradient(circle at center, ${color}, transparent 70%)` }}
+        className="absolute inset-0 opacity-[0.06]"
+        style={{ background: `radial-gradient(circle at 50% 40%, ${color}, transparent 60%)` }}
       />
 
-      {/* Label */}
-      <div className="flex items-center gap-2 z-10">
-        <div className="w-2 h-2 rounded-full pulse-threat" style={{ background: color }} />
-        <span className="text-xs font-semibold tracking-widest uppercase text-[var(--color-ooda-text-muted)]">
-          Market Entropy
-        </span>
-      </div>
-
-      {/* SVG Gauge — viewBox and rendered size match to avoid clipping */}
+      {/* SVG Gauge */}
       <div className="relative z-10">
-        <svg width="148" height="148" viewBox="0 0 148 148">
-          {/* Background ring */}
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          {/* Track */}
+          <circle cx="70" cy="70" r={RADIUS} fill="none" stroke="var(--color-ooda-border)" strokeWidth="7" />
+          {/* Fill */}
           <circle
-            cx="74"
-            cy="74"
-            r={RADIUS}
-            fill="none"
-            stroke="var(--color-ooda-border)"
-            strokeWidth="8"
-          />
-          {/* Progress ring */}
-          <circle
-            cx="74"
-            cy="74"
-            r={RADIUS}
+            cx="70" cy="70" r={RADIUS}
             fill="none"
             stroke={color}
-            strokeWidth="8"
+            strokeWidth="7"
             strokeLinecap="round"
             strokeDasharray={CIRCUMFERENCE}
             strokeDashoffset={offset}
             className="entropy-ring"
-            transform="rotate(-90 74 74)"
-            style={{ filter: `drop-shadow(0 0 8px ${color})` }}
+            transform="rotate(-90 70 70)"
+            style={{ filter: `drop-shadow(0 0 6px ${color})` }}
           />
-          {/* Score text */}
-          <text
-            x="74"
-            y="69"
-            textAnchor="middle"
-            fill={color}
-            style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}
-          >
-            {animatedScore}
+          {/* Score */}
+          <text x="70" y="64" textAnchor="middle" fill={color}
+            style={{ fontSize: '32px', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+            {anim}
           </text>
-          <text
-            x="74"
-            y="86"
-            textAnchor="middle"
-            fill="var(--color-ooda-text-muted)"
-            style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.1em' }}
-          >
+          <text x="70" y="82" textAnchor="middle" fill="var(--color-ooda-text-dim)"
+            style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em' }}>
             / 100
           </text>
         </svg>
       </div>
 
-      {/* Status */}
-      <div className="text-center z-10">
-        <div
-          className="text-sm font-bold tracking-wide"
-          style={{ color }}
-        >
-          {status}
+      {/* Status Label */}
+      <div className="text-center z-10 mt-2">
+        <div className="text-[11px] font-black tracking-widest uppercase" style={{ color }}>
+          {label}
         </div>
-        {reason && (
-          <p className="text-xs text-[var(--color-ooda-text-muted)] mt-1.5 max-w-[240px] leading-relaxed">
-            {reason}
-          </p>
-        )}
+        <div className="text-[10px] text-[var(--color-ooda-text-dim)] font-medium tracking-wider uppercase mt-0.5">
+          Market Entropy
+        </div>
       </div>
+
+      {/* Reason */}
+      {reason && (
+        <p className="text-[11px] text-[var(--color-ooda-text-dim)] mt-3 text-center max-w-[260px] leading-relaxed z-10">
+          {reason}
+        </p>
+      )}
     </div>
   );
 }

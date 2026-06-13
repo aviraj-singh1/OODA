@@ -1,106 +1,124 @@
 /**
- * SignalFeed — List of competitive signals with severity indicators.
+ * SignalFeed — Phase 6: Polished signal cards with value change display.
+ * Supports compact mode for dashboard preview.
  */
 
+import { useNavigate } from 'react-router-dom';
 import StatusBadge from './StatusBadge';
 
-function formatTime(timestamp) {
+function timeAgo(timestamp) {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
-function formatDate(timestamp) {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-function getSignalIcon(type) {
-  const icons = {
-    price_change: '💰',
-    news_mention: '📰',
-    feature_launch: '🚀',
-    review_change: '⭐',
-    hiring: '👥',
-    social_mention: '📱',
+function getTypeLabel(type) {
+  const labels = {
+    price_change: 'Price Change',
+    news_mention: 'News',
+    feature_launch: 'Feature',
+    social_mention: 'Social',
+    review_change: 'Review',
+    hiring: 'Hiring',
   };
-  return icons[type] || '📡';
+  return labels[type] || type?.replace(/_/g, ' ') || 'Signal';
 }
 
-export default function SignalFeed({ signals = [], onSignalClick }) {
+export default function SignalFeed({ signals = [], compact = false, onSignalClick }) {
+  const navigate = useNavigate();
+
   if (signals.length === 0) {
     return (
       <div className="card text-center py-8">
-        <p className="text-[var(--color-ooda-text-dim)] text-sm">
-          No signals detected. Seed demo data to begin.
+        <p className="text-sm text-[var(--color-ooda-text-dim)]">
+          No signals detected yet. Seed demo data to begin.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       {signals.map((signal, i) => (
-        <button
+        <div
           key={signal.id}
-          onClick={() => onSignalClick?.(signal)}
-          className={`card text-left w-full transition-all hover:bg-[var(--color-ooda-surface-elevated)] animate-fade-in ${
-            signal.severity === 'HIGH' ? 'card-threat' : ''
-          }`}
+          className={`card animate-fade-in ${signal.severity === 'HIGH' ? 'card-threat' : ''}`}
           style={{ animationDelay: `${i * 0.05}s` }}
         >
-          <div className="flex items-start gap-3">
-            {/* Icon */}
-            <span className="text-xl mt-0.5">{getSignalIcon(signal.signal_type)}</span>
+          {/* Top row: competitor + type + severity + time */}
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            <span className="text-xs font-bold text-[var(--color-ooda-accent)]">
+              {signal.competitor_name || 'Unknown'}
+            </span>
+            <span className="text-[10px] text-[var(--color-ooda-text-dim)] font-medium">
+              {getTypeLabel(signal.signal_type)}
+            </span>
+            <StatusBadge status={signal.severity} />
+            <span className="text-[10px] text-[var(--color-ooda-text-dim)] font-mono ml-auto">
+              {timeAgo(signal.timestamp)}
+            </span>
+          </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-xs font-medium text-[var(--color-ooda-accent)]">
-                  {signal.competitor_name || 'Unknown'}
-                </span>
-                <StatusBadge status={signal.severity} />
-              </div>
-              <p className="text-sm text-[var(--color-ooda-text)] leading-relaxed line-clamp-2">
-                {signal.summary}
-              </p>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="text-xs text-[var(--color-ooda-text-dim)] font-mono">
-                  {formatTime(signal.timestamp)}
-                </span>
-                <span className="text-xs text-[var(--color-ooda-text-dim)]">
-                  {formatDate(signal.timestamp)}
-                </span>
-                <span className="text-xs text-[var(--color-ooda-text-dim)] capitalize">
-                  {signal.source?.replaceAll('_', ' ')}
-                </span>
-              </div>
-            </div>
+          {/* Summary */}
+          <p className={`text-[13px] text-[var(--color-ooda-text)] leading-relaxed ${compact ? 'line-clamp-2' : ''}`}>
+            {signal.summary}
+          </p>
 
-            {/* Percentage change — use != null to correctly show 0% changes */}
-            {signal.percentage_change != null && (
-              <div className="text-right flex-shrink-0">
+          {/* Value Change Row */}
+          {(signal.old_value || signal.new_value) && !compact && (
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {signal.old_value && (
+                <span className="text-xs font-mono text-[var(--color-ooda-text-dim)] line-through">
+                  {signal.old_value}
+                </span>
+              )}
+              {signal.old_value && signal.new_value && (
+                <span className="text-[var(--color-ooda-text-dim)]">→</span>
+              )}
+              {signal.new_value && (
+                <span className="text-xs font-mono font-bold text-[var(--color-ooda-text)]">
+                  {signal.new_value}
+                </span>
+              )}
+              {signal.percentage_change != null && (
                 <span
-                  className="text-lg font-bold font-mono"
+                  className="badge ml-auto"
                   style={{
+                    background: signal.percentage_change < 0 ? 'rgba(255,59,59,0.1)' : 'rgba(0,230,118,0.1)',
                     color: signal.percentage_change < 0 ? 'var(--color-threat)' : 'var(--color-stable)',
+                    border: `1px solid ${signal.percentage_change < 0 ? 'rgba(255,59,59,0.25)' : 'rgba(0,230,118,0.25)'}`,
                   }}
                 >
-                  {signal.percentage_change > 0 ? '+' : ''}
-                  {signal.percentage_change}%
+                  {signal.percentage_change > 0 ? '+' : ''}{signal.percentage_change}%
                 </span>
-              </div>
-            )}
-          </div>
-        </button>
+              )}
+            </div>
+          )}
+
+          {/* Source + Analyze button */}
+          {!compact && (
+            <div className="flex items-center justify-between mt-2.5">
+              <span className="text-[10px] text-[var(--color-ooda-text-dim)] capitalize">
+                via {signal.source?.replaceAll('_', ' ')}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSignalClick) onSignalClick(signal);
+                  else navigate('/debate');
+                }}
+                className="text-[10px] font-bold text-[var(--color-ooda-accent)] hover:underline"
+              >
+                Analyze →
+              </button>
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );

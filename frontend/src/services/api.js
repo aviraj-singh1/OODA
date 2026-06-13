@@ -41,6 +41,7 @@ export const runAgents = (signalId, force = false) =>
   api.post(`/agents/run/${signalId}${force ? '?force=true' : ''}`);
 export const getAgentVerdicts = (signalId) => api.get(`/agents/verdicts/${signalId}`);
 export const getLatestAgentVerdicts = () => api.get('/agents/latest');
+export const getLatestVerdicts = getLatestAgentVerdicts;  // alias
 export const getReputations = () => api.get('/agents/reputation');
 
 // ── Debate ──────────────────────────────────────────────────────────────────────
