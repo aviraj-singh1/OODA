@@ -283,21 +283,24 @@ def create_package(
     battlecard_json: Optional[str] = None,
     social_response_json: Optional[str] = None,
     internal_alert_json: Optional[str] = None,
+    comparison_report_json: Optional[str] = None,
     pdf_url: Optional[str] = None,
 ) -> CounterStrikePackage:
-    """Insert a new counter-strike package with status=PENDING."""
+    """Insert a new counter-strike package with status=READY."""
     obj = CounterStrikePackage(
         id=id,
         signal_id=signal_id,
         debate_id=debate_id,
         title=title,
-        status="PENDING",
+        status="READY",
         retention_email_json=retention_email_json,
         battlecard_json=battlecard_json,
         social_response_json=social_response_json,
         internal_alert_json=internal_alert_json,
+        comparison_report_json=comparison_report_json,
         pdf_url=pdf_url,
         deployed=0,
+        deployed_at=None,
         created_at=_now(),
     )
     db.add(obj)
@@ -307,14 +310,25 @@ def create_package(
 
 
 def deploy_package(db: Session, package_id: str) -> Optional[CounterStrikePackage]:
-    """Mark a package as deployed. Returns updated package or None if not found."""
+    """Mark a package as deployed with timestamp. Returns updated package or None."""
     package = get_package(db, package_id)
     if package:
         package.deployed = 1
         package.status = "DEPLOYED"
+        package.deployed_at = _now()
         db.commit()
         db.refresh(package)
     return package
+
+
+def get_package_by_signal(db: Session, signal_id: str) -> Optional[CounterStrikePackage]:
+    """Return the latest counter-strike package for a signal."""
+    return (
+        db.query(CounterStrikePackage)
+        .filter(CounterStrikePackage.signal_id == signal_id)
+        .order_by(CounterStrikePackage.created_at.desc())
+        .first()
+    )
 
 
 # ── Agent Reputation ──────────────────────────────────────────────────────────

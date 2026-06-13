@@ -1,76 +1,13 @@
 """
-OODA Export Generator — Phase 5
-Generates internal team alert and competitor comparison report
-for the Counter-Strike package.
+OODA Competitor Comparison Report Generator — Phase 5
+Generates a structured comparison report for the Counter-Strike package.
 Deterministic demo output — no LLM dependency.
 
 Note: OfficeKit is NOT a code-level exporter. This module generates
-the structured data. OfficeKit is used to mirror phone, transfer
-files, and show the phone-laptop workflow.
+the structured data. OfficeKit is used for phone-laptop workflow.
 """
 
 from __future__ import annotations
-from datetime import datetime, timezone
-
-
-def generate_internal_alert(
-    signal: dict,
-    debate: dict,
-    competitor_name: str = "Competitor",
-) -> dict:
-    """
-    Generate an internal team alert (Slack/email notification).
-
-    Returns a structured alert dict for team communication.
-    """
-    signal_type = signal.get("signal_type", "")
-    severity = signal.get("severity", "MEDIUM")
-    summary = signal.get("summary", "Competitor activity detected")
-    final_verdict = debate.get("final_verdict", "NEUTRAL")
-    final_confidence = debate.get("final_confidence", 0)
-    recommended_action = debate.get("recommended_action", "Monitor the situation")
-    entropy = debate.get("market_entropy_score", 0)
-
-    confidence_pct = round((final_confidence or 0) * 100)
-
-    # Build action items by team
-    if signal_type == "price_change" and final_verdict == "THREAT":
-        action_items = [
-            {"team": "Sales", "action": "Review pipeline for at-risk deals. Update pricing objection talking points."},
-            {"team": "Marketing", "action": "Prepare retention messaging. Draft value-over-price positioning."},
-            {"team": "Product", "action": "No immediate changes needed. Continue roadmap execution."},
-            {"team": "Customer Success", "action": "Prepare talking points for inbound pricing questions."},
-            {"team": "Leadership", "action": "Review competitive response plan. Approve battlecard distribution."},
-        ]
-    elif signal_type == "feature_launch":
-        action_items = [
-            {"team": "Product", "action": "Evaluate feature overlap. Update competitive feature matrix."},
-            {"team": "Marketing", "action": "Prepare positioning response if asked about the feature."},
-            {"team": "Sales", "action": "Monitor for prospect questions about this feature."},
-        ]
-    else:
-        action_items = [
-            {"team": "All Teams", "action": "Acknowledge and monitor for follow-up signals."},
-        ]
-
-    return {
-        "alert_type": "COMPETITIVE_INTELLIGENCE",
-        "severity": severity,
-        "headline": f"🚨 {severity} SEVERITY — {competitor_name} Activity Detected",
-        "summary": summary,
-        "verdict": final_verdict,
-        "confidence": f"{confidence_pct}%",
-        "entropy_score": entropy,
-        "recommended_action": recommended_action,
-        "action_items": action_items,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "channel": "#competitive-intel",
-        "urgency_note": (
-            "This alert requires immediate attention."
-            if severity == "HIGH"
-            else "This alert is informational. Monitor for changes."
-        ),
-    }
 
 
 def generate_comparison_report(
@@ -81,82 +18,129 @@ def generate_comparison_report(
     """
     Generate a competitor comparison one-pager report.
 
-    Returns structured data for a comparison report.
+    Returns dict: title, summary, sections (list of heading/content)
     """
     signal_type = signal.get("signal_type", "")
-    new_value = signal.get("new_value", "")
     old_value = signal.get("old_value", "")
+    new_value = signal.get("new_value", "")
+    pct_change = signal.get("percentage_change")
+    final_verdict = (debate.get("final_verdict") or "NEUTRAL").upper()
+    confidence = debate.get("final_confidence", 0)
+    entropy = debate.get("market_entropy_score", 0)
 
-    # Base comparison data
-    comparison = {
-        "title": f"Competitive Analysis: Us vs {competitor_name}",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "signal_context": signal.get("summary", ""),
-        "verdict": debate.get("final_verdict", "NEUTRAL"),
-        "sections": [],
-    }
+    # ── Price change scenario ─────────────────────────────────────────────
+    if signal_type == "price_change" and pct_change is not None:
+        abs_pct = abs(pct_change)
+        confidence_pct = round((confidence or 0) * 100)
 
-    # Pricing section
-    if signal_type == "price_change":
-        comparison["sections"].append({
-            "name": "Pricing Comparison",
-            "data": [
-                {"metric": "Pro Plan Price", "us": old_value or "₹999/month", "them": new_value or "Unknown", "advantage": "them"},
-                {"metric": "Price-to-Value Ratio", "us": "4.2x ROI", "them": "Not published", "advantage": "us"},
-                {"metric": "Hidden Costs", "us": "All-inclusive", "them": "Support add-on, API limits", "advantage": "us"},
-                {"metric": "Annual Discount", "us": "20% off annual", "them": "10% off annual", "advantage": "us"},
+        return {
+            "title": f"{competitor_name} Competitive Response Report",
+            "summary": (
+                f"{competitor_name} reduced pricing by {abs_pct:.0f}%, from {old_value} to {new_value}. "
+                f"Strategy AI assessed this as {final_verdict} with {confidence_pct}% confidence. "
+                f"Market Entropy Score is {entropy:.0f}. Immediate retention and sales enablement actions recommended."
+            ),
+            "sections": [
+                {
+                    "heading": "What changed",
+                    "content": (
+                        f"{competitor_name} dropped their Pro Plan pricing from {old_value} to {new_value}, "
+                        f"representing a {abs_pct:.0f}% reduction. The pricing page now emphasizes "
+                        f"'Most affordable marketing automation for growing teams.' This signals a "
+                        f"deliberate push to capture price-sensitive SMB customers in our core segment."
+                    ),
+                },
+                {
+                    "heading": "Why it matters",
+                    "content": (
+                        f"This price cut creates three immediate risks: (1) Prospects comparing plans "
+                        f"will see a significant price gap, making our pricing harder to justify without "
+                        f"clear differentiation. (2) Renewal accounts may leverage this for discounts. "
+                        f"(3) Market narrative shifts to position {competitor_name} as the value option. "
+                        f"The Market Entropy Score of {entropy:.0f} indicates elevated competitive volatility."
+                    ),
+                },
+                {
+                    "heading": "Our competitive advantages",
+                    "content": (
+                        f"We maintain clear advantages in: 99.9% uptime SLA (vs no published SLA), "
+                        f"dedicated account management (vs ticket-only support), 50+ native integrations "
+                        f"(vs ~18), full-funnel analytics (vs basic dashboards), and SOC 2 Type II "
+                        f"certification (vs Type I). Customers report 4.2x average ROI."
+                    ),
+                },
+                {
+                    "heading": "Recommended response",
+                    "content": (
+                        f"1. Launch value-focused retention campaign for renewal accounts. "
+                        f"2. Update sales battlecard with pricing objection responses. "
+                        f"3. Arm customer success team with comparison talking points. "
+                        f"4. Publish value-over-price positioning content. "
+                        f"5. Do NOT match pricing reactively — compete on value and outcomes."
+                    ),
+                },
+                {
+                    "heading": "Risk assessment",
+                    "content": (
+                        f"Threat Level: {final_verdict} | Confidence: {confidence_pct}% | "
+                        f"Entropy: {entropy:.0f}/100. The price cut may indicate competitive pressure "
+                        f"on {competitor_name}'s side, but the immediate risk to our pipeline is real. "
+                        f"Focus on protecting existing revenue before pursuing offensive plays."
+                    ),
+                },
             ],
-        })
+        }
 
-    # Feature section (always included)
-    comparison["sections"].append({
-        "name": "Feature Comparison",
-        "data": [
-            {"metric": "Native Integrations", "us": "50+", "them": "~18", "advantage": "us"},
-            {"metric": "AI Capabilities", "us": "Full AI suite", "them": "Basic AI tools", "advantage": "us"},
-            {"metric": "Custom Reporting", "us": "Unlimited custom reports", "them": "5 report templates", "advantage": "us"},
-            {"metric": "Workflow Automation", "us": "Visual builder + API", "them": "Template-based only", "advantage": "us"},
-            {"metric": "A/B Testing", "us": "Multi-variant testing", "them": "Basic A/B only", "advantage": "us"},
-        ],
-    })
+    # ── Feature launch scenario ───────────────────────────────────────────
+    if signal_type == "feature_launch":
+        feature_name = signal.get("new_value", "a new feature")
+        return {
+            "title": f"{competitor_name} Feature Analysis Report",
+            "summary": (
+                f"{competitor_name} launched {feature_name}. Strategy AI assessed this as "
+                f"{final_verdict}. Product team should evaluate overlap with our roadmap."
+            ),
+            "sections": [
+                {
+                    "heading": "What changed",
+                    "content": f"{competitor_name} launched {feature_name}, positioned as included in all plans.",
+                },
+                {
+                    "heading": "Why it matters",
+                    "content": (
+                        f"Prospects may ask about feature parity. Our platform already covers "
+                        f"similar functionality with deeper integration into existing workflows."
+                    ),
+                },
+                {
+                    "heading": "Recommended response",
+                    "content": (
+                        f"Position our broader platform advantage. Do not engage in "
+                        f"feature-by-feature comparison. Focus on ecosystem and workflow value."
+                    ),
+                },
+            ],
+        }
 
-    # Reliability section
-    comparison["sections"].append({
-        "name": "Reliability & Support",
-        "data": [
-            {"metric": "Uptime SLA", "us": "99.9% guaranteed", "them": "No published SLA", "advantage": "us"},
-            {"metric": "Support Model", "us": "Dedicated account manager", "them": "Ticket-based", "advantage": "us"},
-            {"metric": "Avg Response Time", "us": "< 2 hours", "them": "24-48 hours", "advantage": "us"},
-            {"metric": "Security", "us": "SOC 2 Type II, GDPR", "them": "SOC 2 Type I", "advantage": "us"},
-            {"metric": "Data Residency", "us": "Multi-region choice", "them": "US only", "advantage": "us"},
-        ],
-    })
-
-    # Summary
-    our_advantages = sum(
-        1 for section in comparison["sections"]
-        for row in section["data"]
-        if row.get("advantage") == "us"
-    )
-    their_advantages = sum(
-        1 for section in comparison["sections"]
-        for row in section["data"]
-        if row.get("advantage") == "them"
-    )
-
-    comparison["summary"] = {
-        "our_advantages": our_advantages,
-        "their_advantages": their_advantages,
-        "conclusion": (
-            f"Across {our_advantages + their_advantages} comparison points, "
-            f"we lead in {our_advantages} areas. "
-            f"{'Their recent price cut is their primary competitive lever, '
-            'but our value proposition remains significantly stronger across '
-            'features, reliability, and support.'}"
-            if signal_type == "price_change"
-            else f"We maintain clear advantages in {our_advantages} out of "
-                 f"{our_advantages + their_advantages} comparison areas."
+    # ── Default ───────────────────────────────────────────────────────────
+    return {
+        "title": f"{competitor_name} Competitive Intelligence Report",
+        "summary": (
+            f"New competitive activity detected from {competitor_name}. "
+            f"Strategy AI assessed this as {final_verdict}. Monitor and prepare."
         ),
+        "sections": [
+            {
+                "heading": "What changed",
+                "content": signal.get("summary", f"Activity detected from {competitor_name}."),
+            },
+            {
+                "heading": "Why it matters",
+                "content": f"This signal may impact our market position. Current entropy score: {entropy:.0f}.",
+            },
+            {
+                "heading": "Recommended response",
+                "content": "Monitor for follow-up signals. Prepare contingency response plan.",
+            },
+        ],
     }
-
-    return comparison

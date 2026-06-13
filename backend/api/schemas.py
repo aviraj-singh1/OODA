@@ -135,6 +135,53 @@ class DebateResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Counter-Strike Assets ────────────────────────────────────────────────────
+
+class RetentionEmailAsset(BaseModel):
+    subject: str
+    preview: str
+    body: str
+    tone: str
+    target_segment: str
+
+
+class SalesBattlecardAsset(BaseModel):
+    title: str
+    situation: str
+    primary_objection: str
+    recommended_response: str
+    talking_points: list[str]
+    do_not_say: list[str]
+    battle_position: str
+
+
+class SocialResponseAsset(BaseModel):
+    platform: str
+    post_type: str
+    draft: str
+    tone: str
+    hashtags: list[str]
+
+
+class InternalAlertAsset(BaseModel):
+    channel: str
+    priority: str
+    title: str
+    message: str
+    action_items: list[str]
+
+
+class ComparisonReportSection(BaseModel):
+    heading: str
+    content: str
+
+
+class ComparisonReportAsset(BaseModel):
+    title: str
+    summary: str
+    sections: list[ComparisonReportSection]
+
+
 # ── Counter-Strike Package ───────────────────────────────────────────────────
 
 class CounterStrikePackageResponse(BaseModel):
@@ -147,11 +194,20 @@ class CounterStrikePackageResponse(BaseModel):
     battlecard_json: Optional[str] = None
     social_response_json: Optional[str] = None
     internal_alert_json: Optional[str] = None
+    comparison_report_json: Optional[str] = None
     pdf_url: Optional[str] = None
     deployed: int = 0
+    deployed_at: Optional[str] = None
     created_at: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class DeployCounterStrikeResponse(BaseModel):
+    message: str
+    deployment_mode: str = "SIMULATED"
+    actions: list[str]
+    status: str
 
 
 # ── Agent Reputation ──────────────────────────────────────────────────────────

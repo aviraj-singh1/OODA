@@ -53,10 +53,14 @@ export const getDebateBySignal = (signalId) => api.get(`/debate/by-signal/${sign
 
 // ── Counter-Strike ──────────────────────────────────────────────────────────────
 
-export const buildCounterStrike = (signalId) => api.post(`/counter-strike/build/${signalId}`);
+export const buildCounterStrike = (signalId, force = false) =>
+  api.post(`/counter-strike/build/${signalId}${force ? '?force=true' : ''}`);
 export const getLatestPackage = () => api.get('/counter-strike/latest');
+export const getLatestCounterStrike = getLatestPackage;  // alias per PRD
 export const getPackage = (id) => api.get(`/counter-strike/${id}`);
+export const getCounterStrike = getPackage;  // alias per PRD
 export const deployPackage = (id) => api.post(`/counter-strike/${id}/deploy`);
+export const deployCounterStrike = deployPackage;  // alias per PRD
 
 // ── Competitors ─────────────────────────────────────────────────────────────────
 

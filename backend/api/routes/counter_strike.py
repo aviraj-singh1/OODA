@@ -6,7 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from backend.database.models import get_db
 from backend.database import crud
-from backend.api.schemas import CounterStrikePackageResponse, APIMessageResponse
+from backend.api.schemas import (
+    CounterStrikePackageResponse,
+    DeployCounterStrikeResponse,
+)
 from backend.counter_strike.package_builder import PackageBuilder
 
 router = APIRouter(prefix="/api/counter-strike", tags=["Counter-Strike"])
@@ -24,19 +27,20 @@ def build_package(
     """
     Build a complete Counter-Strike package for a signal.
 
-    Pipeline:
-        1. Ensures debate exists (runs if needed)
-        2. Generates 5 assets: email, battlecard, social, alert, comparison
-        3. Saves package to database
-        4. Returns full package with all assets
-
-    Use ?force=true to regenerate an existing package.
+    Requires signal and debate to exist.
+    If no debate exists, returns 400.
+    If package already exists and force=false, returns existing package.
+    If force=true, regenerates package.
     """
     try:
         result = _builder.build(signal_id, db, force=force)
         return result
     except ValueError as e:
+        # Signal not found
         raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        # Debate not found
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -51,22 +55,14 @@ def get_latest_package(db: Session = Depends(get_db)):
     if not pkg:
         raise HTTPException(status_code=404, detail="No packages found")
 
-    # Also get signal info
     signal = crud.get_signal(db, pkg.signal_id) if pkg.signal_id else None
+    debate = crud.get_debate_by_signal(db, pkg.signal_id) if pkg.signal_id else None
 
-    return _builder._build_response_from_db(pkg, signal, db) if signal else {
-        "package": {
-            "id": pkg.id,
-            "signal_id": pkg.signal_id,
-            "debate_id": pkg.debate_id,
-            "title": pkg.title,
-            "status": pkg.status,
-            "deployed": pkg.deployed,
-            "created_at": pkg.created_at,
-        },
-        "assets": {},
-        "deploy_mode": "SIMULATED",
-    }
+    if signal and debate:
+        return _builder._build_response_from_db(pkg, signal, debate, db)
+
+    # Fallback: return raw package data
+    return CounterStrikePackageResponse.model_validate(pkg)
 
 
 @router.get("/{package_id}")
@@ -77,29 +73,53 @@ def get_package(package_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Package not found")
 
     signal = crud.get_signal(db, pkg.signal_id) if pkg.signal_id else None
-    if signal:
-        return _builder._build_response_from_db(pkg, signal, db)
+    debate = crud.get_debate_by_signal(db, pkg.signal_id) if pkg.signal_id else None
+
+    if signal and debate:
+        return _builder._build_response_from_db(pkg, signal, debate, db)
 
     return CounterStrikePackageResponse.model_validate(pkg)
 
 
-@router.post("/{package_id}/deploy", response_model=APIMessageResponse)
+@router.post("/{package_id}/deploy", response_model=DeployCounterStrikeResponse)
 def deploy_package(package_id: str, db: Session = Depends(get_db)):
     """
     Simulate deployment of a counter-strike package.
 
-    Sets package status to DEPLOYED and returns success message
-    with the list of simulated actions taken.
+    Sets package status to DEPLOYED with timestamp.
+    Repeated deploy calls return current deployed status without crashing.
     """
-    pkg = crud.deploy_package(db, package_id)
+    pkg = crud.get_package(db, package_id)
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
 
-    return APIMessageResponse(
-        status="deployed",
-        message=(
-            f"Counter-Strike '{pkg.title or package_id}' deployed successfully (simulated). "
-            f"Actions: Retention email prepared · Sales battlecard exported · "
-            f"Internal alert generated · Social response queued."
-        ),
+    # Handle already deployed
+    if pkg.deployed == 1 or pkg.status == "DEPLOYED":
+        return DeployCounterStrikeResponse(
+            message=f"Counter-Strike '{pkg.title or package_id}' is already deployed.",
+            deployment_mode="SIMULATED",
+            actions=[
+                "Retention email prepared",
+                "Sales battlecard exported",
+                "Social response queued",
+                "Internal team alert generated",
+                "Comparison report prepared",
+            ],
+            status="DEPLOYED",
+        )
+
+    # Deploy
+    crud.deploy_package(db, package_id)
+
+    return DeployCounterStrikeResponse(
+        message="Counter-Strike deployed successfully in simulation mode.",
+        deployment_mode="SIMULATED",
+        actions=[
+            "Retention email prepared",
+            "Sales battlecard exported",
+            "Social response queued",
+            "Internal team alert generated",
+            "Comparison report prepared",
+        ],
+        status="DEPLOYED",
     )

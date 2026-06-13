@@ -18,15 +18,11 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from backend.database import crud
-from backend.debate.debate_engine import DebateEngine
-from backend.intelligence.entropy_calculator import calculate_entropy
 from backend.counter_strike.email_generator import generate_retention_email
-from backend.counter_strike.battlecard_generator import generate_battlecard
+from backend.counter_strike.battlecard_generator import generate_sales_battlecard
 from backend.counter_strike.social_generator import generate_social_response
-from backend.counter_strike.export_generator import (
-    generate_internal_alert,
-    generate_comparison_report,
-)
+from backend.counter_strike.internal_alert_generator import generate_internal_alert
+from backend.counter_strike.export_generator import generate_comparison_report
 
 
 class PackageBuilder:
@@ -39,9 +35,6 @@ class PackageBuilder:
         result = builder.build(signal_id, db)
     """
 
-    def __init__(self):
-        self._debate_engine = DebateEngine()
-
     def build(
         self,
         signal_id: str,
@@ -52,41 +45,40 @@ class PackageBuilder:
         Build a complete Counter-Strike package for a signal.
 
         Pipeline:
-            1. Ensure debate exists (runs debate if needed)
-            2. Generate all 5 assets
-            3. Save package to database
-            4. Return complete package dict
-
-        Parameters
-        ----------
-        signal_id : str     Target signal ID.
-        db : Session        Active database session.
-        force : bool        If True, regenerate even if package exists.
-
-        Returns
-        -------
-        dict  Complete package with all assets and metadata.
+            1. Validate signal exists (404 if missing)
+            2. Validate debate exists (400 if missing)
+            3. Check for existing package (return if force=false)
+            4. Generate all 5 assets
+            5. Save package to database
+            6. Return full package response
 
         Raises
         ------
         ValueError  If signal_id does not exist.
+        RuntimeError  If no debate exists for the signal.
         """
         # ── 1. Validate signal ────────────────────────────────────────
         signal_row = crud.get_signal(db, signal_id)
         if not signal_row:
             raise ValueError(f"Signal '{signal_id}' not found")
 
-        # ── 2. Check for existing package ─────────────────────────────
-        existing = self._get_existing_package(db, signal_id)
+        # ── 2. Validate debate exists ─────────────────────────────────
+        debate_row = crud.get_debate_by_signal(db, signal_id)
+        if not debate_row:
+            raise RuntimeError(
+                "Run debate before building Counter-Strike package."
+            )
+
+        # ── 3. Check for existing package ─────────────────────────────
+        existing = crud.get_package_by_signal(db, signal_id)
         if existing and not force:
-            return self._build_response_from_db(existing, signal_row, db)
+            return self._build_response_from_db(existing, signal_row, debate_row, db)
 
-        # ── 3. Ensure debate exists ───────────────────────────────────
-        debate_result = self._ensure_debate(signal_id, db)
-        debate_data = debate_result.get("debate", {})
-        debate_id = debate_data.get("id")
+        # If force, delete existing packages for this signal
+        if existing and force:
+            self._delete_packages_for_signal(db, signal_id)
 
-        # ── 4. Build signal dict ──────────────────────────────────────
+        # ── 4. Build dicts for generators ─────────────────────────────
         competitor_name = (
             signal_row.competitor.name if signal_row.competitor else "Competitor"
         )
@@ -106,18 +98,18 @@ class PackageBuilder:
         }
 
         debate_dict = {
-            "final_verdict": debate_data.get("final_verdict", "NEUTRAL"),
-            "final_confidence": debate_data.get("final_confidence", 0),
-            "recommended_action": debate_data.get("recommended_action", ""),
-            "market_entropy_score": debate_result.get("market_entropy_score", 0),
-            "conflict_summary": debate_data.get("conflict_summary", ""),
+            "final_verdict": debate_row.final_verdict or "NEUTRAL",
+            "final_confidence": debate_row.final_confidence or 0,
+            "recommended_action": debate_row.recommended_action or "",
+            "market_entropy_score": debate_row.market_entropy_score or 0,
+            "conflict_summary": debate_row.conflict_summary or "",
         }
 
-        # ── 5. Generate all assets ────────────────────────────────────
+        # ── 5. Generate all 5 assets ──────────────────────────────────
         retention_email = generate_retention_email(
             signal_dict, debate_dict, competitor_name
         )
-        battlecard = generate_battlecard(
+        battlecard = generate_sales_battlecard(
             signal_dict, debate_dict, competitor_name
         )
         social_response = generate_social_response(
@@ -137,25 +129,41 @@ class PackageBuilder:
             db=db,
             id=crud._generate_id("pkg"),
             signal_id=signal_id,
-            debate_id=debate_id,
+            debate_id=debate_row.id,
             title=title,
             retention_email_json=json.dumps(retention_email),
             battlecard_json=json.dumps(battlecard),
             social_response_json=json.dumps(social_response),
             internal_alert_json=json.dumps(internal_alert),
-            pdf_url=None,  # PDF generation is Phase 6+
+            comparison_report_json=json.dumps(comparison_report),
+            pdf_url=None,
         )
 
         # ── 7. Build response ─────────────────────────────────────────
+        return self._make_response(
+            package_row, signal_row, debate_row, competitor_name,
+            retention_email, battlecard, social_response,
+            internal_alert, comparison_report,
+        )
+
+    # ── Response builders ─────────────────────────────────────────────────
+
+    def _make_response(
+        self, pkg, signal_row, debate_row, competitor_name,
+        retention_email, battlecard, social_response,
+        internal_alert, comparison_report,
+    ) -> dict:
+        """Build the full API response dict."""
         return {
             "package": {
-                "id": package_row.id,
-                "signal_id": signal_id,
-                "debate_id": debate_id,
-                "title": title,
-                "status": package_row.status,
-                "deployed": package_row.deployed,
-                "created_at": package_row.created_at,
+                "id": pkg.id,
+                "signal_id": pkg.signal_id,
+                "debate_id": pkg.debate_id,
+                "title": pkg.title,
+                "status": pkg.status,
+                "deployed": pkg.deployed,
+                "deployed_at": pkg.deployed_at,
+                "created_at": pkg.created_at,
             },
             "signal": {
                 "id": signal_row.id,
@@ -165,9 +173,10 @@ class PackageBuilder:
                 "severity": signal_row.severity,
             },
             "debate_verdict": {
-                "final_verdict": debate_dict["final_verdict"],
-                "final_confidence": debate_dict["final_confidence"],
-                "recommended_action": debate_dict["recommended_action"],
+                "final_verdict": debate_row.final_verdict or "NEUTRAL",
+                "final_confidence": debate_row.final_confidence or 0,
+                "market_entropy_score": debate_row.market_entropy_score or 0,
+                "recommended_action": debate_row.recommended_action or "",
             },
             "assets": {
                 "retention_email": retention_email,
@@ -180,34 +189,14 @@ class PackageBuilder:
             "asset_count": 5,
         }
 
-    # ── Helpers ───────────────────────────────────────────────────────────
-
-    def _ensure_debate(self, signal_id: str, db: Session) -> dict:
-        """Ensure a debate exists for this signal, running one if needed."""
-        return self._debate_engine.run_debate(signal_id, db, force=False)
-
-    def _get_existing_package(
-        self, db: Session, signal_id: str
-    ) -> Optional[object]:
-        """Find an existing package for this signal."""
-        from backend.database.models import CounterStrikePackage
-
-        return (
-            db.query(CounterStrikePackage)
-            .filter(CounterStrikePackage.signal_id == signal_id)
-            .order_by(CounterStrikePackage.created_at.desc())
-            .first()
-        )
-
     def _build_response_from_db(
-        self, package, signal_row, db: Session
+        self, package, signal_row, debate_row, db: Session,
     ) -> dict:
         """Reconstruct full response from a saved package."""
         competitor_name = (
             signal_row.competitor.name if signal_row.competitor else "Competitor"
         )
 
-        # Parse stored JSON assets
         def _safe_parse(json_str):
             if not json_str:
                 return {}
@@ -216,42 +205,21 @@ class PackageBuilder:
             except (json.JSONDecodeError, TypeError):
                 return {}
 
-        # Get debate verdict
-        debate_verdict = {"final_verdict": "NEUTRAL", "final_confidence": 0, "recommended_action": ""}
-        if package.debate_id:
-            debate = crud.get_debate(db, package.debate_id)
-            if debate:
-                debate_verdict = {
-                    "final_verdict": debate.final_verdict or "NEUTRAL",
-                    "final_confidence": debate.final_confidence or 0,
-                    "recommended_action": debate.recommended_action or "",
-                }
+        return self._make_response(
+            package, signal_row, debate_row, competitor_name,
+            _safe_parse(package.retention_email_json),
+            _safe_parse(package.battlecard_json),
+            _safe_parse(package.social_response_json),
+            _safe_parse(package.internal_alert_json),
+            _safe_parse(package.comparison_report_json),
+        )
 
-        return {
-            "package": {
-                "id": package.id,
-                "signal_id": package.signal_id,
-                "debate_id": package.debate_id,
-                "title": package.title,
-                "status": package.status,
-                "deployed": package.deployed,
-                "created_at": package.created_at,
-            },
-            "signal": {
-                "id": signal_row.id,
-                "competitor_name": competitor_name,
-                "signal_type": signal_row.signal_type,
-                "summary": signal_row.summary,
-                "severity": signal_row.severity,
-            },
-            "debate_verdict": debate_verdict,
-            "assets": {
-                "retention_email": _safe_parse(package.retention_email_json),
-                "battlecard": _safe_parse(package.battlecard_json),
-                "social_response": _safe_parse(package.social_response_json),
-                "internal_alert": _safe_parse(package.internal_alert_json),
-                "comparison_report": {},  # Not stored in DB, regenerate if needed
-            },
-            "deploy_mode": "SIMULATED",
-            "asset_count": 5,
-        }
+    # ── Helpers ───────────────────────────────────────────────────────────
+
+    def _delete_packages_for_signal(self, db: Session, signal_id: str) -> None:
+        """Delete all packages for a signal (for force rebuild)."""
+        from backend.database.models import CounterStrikePackage
+        db.query(CounterStrikePackage).filter(
+            CounterStrikePackage.signal_id == signal_id
+        ).delete()
+        db.commit()

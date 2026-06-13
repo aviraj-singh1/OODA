@@ -2,7 +2,7 @@
  * CounterStrike — Phase 5: Full Counter-Strike package page.
  *
  * Flow:
- *   1. Build Counter-Strike (calls full pipeline: agents → debate → assets)
+ *   1. Build Counter-Strike (calls full pipeline: agents -> debate -> assets)
  *   2. View generated assets (email, battlecard, social, alert, comparison)
  *   3. Deploy (simulated)
  */
@@ -39,21 +39,56 @@ const VERDICT_COLORS = {
   NEUTRAL: { color: 'var(--color-neutral)', bg: 'rgba(132,146,166,0.10)', border: 'rgba(132,146,166,0.3)' },
 };
 
-// ── Asset Detail Cards ─────────────────────────────────────────────────────────
+// ── Copy Helper ────────────────────────────────────────────────────────────────
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="text-[10px] px-2 py-1 rounded-md"
+      style={{
+        background: copied ? 'rgba(0,230,118,0.15)' : 'var(--color-ooda-surface-elevated)',
+        color: copied ? 'var(--color-stable)' : 'var(--color-ooda-text-dim)',
+        border: `1px solid ${copied ? 'rgba(0,230,118,0.3)' : 'var(--color-ooda-border)'}`,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      }}
+    >
+      {copied ? '✓ Copied' : '📋 Copy'}
+    </button>
+  );
+}
+
+// ── Asset Detail Cards (PRD §14) ───────────────────────────────────────────────
 
 function EmailAssetCard({ data }) {
   if (!data) return null;
   return (
     <div className="flex flex-col gap-2">
-      <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">Subject Line</div>
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">Subject Line</div>
+        <CopyButton text={data.body || ''} />
+      </div>
       <div className="text-sm font-semibold text-[var(--color-ooda-text)]">{data.subject}</div>
 
-      <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-2">Preview</div>
+      {data.preview && (
+        <div className="text-xs text-[var(--color-ooda-text-muted)] italic">{data.preview}</div>
+      )}
+
+      <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-2">Email Body</div>
       <div
         className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed whitespace-pre-line rounded-lg p-3"
         style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
       >
-        {data.body?.substring(0, 300)}{data.body?.length > 300 ? '...' : ''}
+        {data.body}
       </div>
 
       <div className="flex items-center gap-4 mt-1">
@@ -72,19 +107,26 @@ function BattlecardAssetCard({ data }) {
   if (!data) return null;
   return (
     <div className="flex flex-col gap-2">
-      <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.title}</div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.title}</div>
+        <CopyButton text={`${data.primary_objection}\n\nResponse: ${data.recommended_response}\n\nTalking Points:\n${(data.talking_points || []).map(p => `- ${p}`).join('\n')}`} />
+      </div>
 
-      {data.objection && (
+      {data.situation && (
+        <div className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{data.situation}</div>
+      )}
+
+      {data.primary_objection && (
         <div className="rounded-lg p-3" style={{ background: 'rgba(255,59,59,0.06)', border: '1px solid rgba(255,59,59,0.15)' }}>
-          <div className="text-[10px] text-[var(--color-threat)] uppercase tracking-wider font-semibold mb-1">Objection</div>
-          <div className="text-xs text-[var(--color-ooda-text-muted)] italic">"{data.objection}"</div>
+          <div className="text-[10px] text-[var(--color-threat)] uppercase tracking-wider font-semibold mb-1">Primary Objection</div>
+          <div className="text-xs text-[var(--color-ooda-text-muted)] italic">"{data.primary_objection}"</div>
         </div>
       )}
 
-      {data.response && (
+      {data.recommended_response && (
         <div className="rounded-lg p-3" style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)' }}>
-          <div className="text-[10px] text-[var(--color-stable)] uppercase tracking-wider font-semibold mb-1">Response</div>
-          <div className="text-xs text-[var(--color-ooda-text-muted)]">{data.response}</div>
+          <div className="text-[10px] text-[var(--color-stable)] uppercase tracking-wider font-semibold mb-1">Recommended Response</div>
+          <div className="text-xs text-[var(--color-ooda-text-muted)]">{data.recommended_response}</div>
         </div>
       )}
 
@@ -92,7 +134,7 @@ function BattlecardAssetCard({ data }) {
         <div className="mt-1">
           <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">Talking Points</div>
           <ul className="flex flex-col gap-1">
-            {data.talking_points.slice(0, 4).map((pt, i) => (
+            {data.talking_points.map((pt, i) => (
               <li key={i} className="flex items-start gap-2">
                 <span className="text-[var(--color-ooda-accent)] mt-0.5">•</span>
                 <span className="text-xs text-[var(--color-ooda-text-muted)]">{pt}</span>
@@ -102,19 +144,27 @@ function BattlecardAssetCard({ data }) {
         </div>
       )}
 
-      {data.key_differentiators?.length > 0 && (
-        <div className="mt-2">
-          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">Key Differentiators</div>
-          <div className="flex flex-col gap-1">
-            {data.key_differentiators.slice(0, 3).map((d, i) => (
-              <div key={i} className="flex items-center text-xs gap-2">
-                <span className="text-[var(--color-ooda-text-dim)] w-24 flex-shrink-0 truncate">{d.feature}</span>
-                <span className="text-[var(--color-stable)] flex-1 font-medium">{d.us}</span>
-                <span className="text-[var(--color-ooda-text-dim)]">vs</span>
-                <span className="text-[var(--color-threat)] flex-1">{d.them}</span>
-              </div>
+      {data.do_not_say?.length > 0 && (
+        <div className="mt-1">
+          <div className="text-[10px] text-[var(--color-threat)] uppercase tracking-wider font-semibold mb-1.5">Do Not Say</div>
+          <ul className="flex flex-col gap-1">
+            {data.do_not_say.map((pt, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="text-[var(--color-threat)] mt-0.5">✕</span>
+                <span className="text-xs text-[var(--color-ooda-text-muted)]">{pt}</span>
+              </li>
             ))}
-          </div>
+          </ul>
+        </div>
+      )}
+
+      {data.battle_position && (
+        <div
+          className="rounded-lg p-3 mt-1"
+          style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+        >
+          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1">Battle Position</div>
+          <p className="text-xs text-[var(--color-ooda-text)] font-medium">{data.battle_position}</p>
         </div>
       )}
     </div>
@@ -123,28 +173,34 @@ function BattlecardAssetCard({ data }) {
 
 function SocialAssetCard({ data }) {
   if (!data) return null;
-  const posts = data.posts || [];
   return (
     <div className="flex flex-col gap-3">
-      {posts.map((post, i) => (
-        <div
-          key={i}
-          className="rounded-lg p-3"
-          style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-ooda-accent)' }}>
-              {post.platform}
-            </span>
-            <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
-              {post.character_count} chars
-            </span>
-          </div>
-          <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed whitespace-pre-line">
-            {post.content}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-ooda-accent)' }}>
+            {data.platform}
+          </span>
+          <span className="badge" style={{ background: 'rgba(0,212,255,0.10)', color: 'var(--color-ooda-accent)', border: '1px solid rgba(0,212,255,0.2)', fontSize: '0.6rem' }}>
+            {data.post_type}
+          </span>
         </div>
-      ))}
+        <CopyButton text={data.draft || ''} />
+      </div>
+
+      <div
+        className="rounded-lg p-3"
+        style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+      >
+        <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed whitespace-pre-line">
+          {data.draft}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
+          Tone: <span className="text-[var(--color-ooda-text-muted)] font-medium">{data.tone}</span>
+        </span>
+      </div>
 
       {data.hashtags?.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -159,12 +215,6 @@ function SocialAssetCard({ data }) {
           ))}
         </div>
       )}
-
-      {data.strategy_notes && (
-        <div className="text-[10px] text-[var(--color-ooda-text-dim)] italic mt-1">
-          📌 {data.strategy_notes}
-        </div>
-      )}
     </div>
   );
 }
@@ -173,26 +223,41 @@ function AlertAssetCard({ data }) {
   if (!data) return null;
   return (
     <div className="flex flex-col gap-2">
-      <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.headline}</div>
-      <p className="text-xs text-[var(--color-ooda-text-muted)]">{data.summary}</p>
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.title}</div>
+        <div className="flex items-center gap-2">
+          <span
+            className="badge"
+            style={{
+              background: data.priority === 'HIGH' ? 'rgba(255,59,59,0.12)' : 'rgba(245,158,11,0.12)',
+              color: data.priority === 'HIGH' ? 'var(--color-threat)' : '#f59e0b',
+              border: `1px solid ${data.priority === 'HIGH' ? 'rgba(255,59,59,0.3)' : 'rgba(245,158,11,0.3)'}`,
+              fontSize: '0.6rem',
+            }}
+          >
+            {data.priority}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-[10px] text-[var(--color-ooda-text-dim)]">
+        Channel: <span className="font-medium text-[var(--color-ooda-accent)]">#{data.channel}</span>
+      </div>
+
+      <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{data.message}</p>
 
       {data.action_items?.length > 0 && (
         <div className="mt-1">
-          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">Action Items by Team</div>
-          <div className="flex flex-col gap-2">
+          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">Action Items</div>
+          <div className="flex flex-col gap-1.5">
             {data.action_items.map((item, i) => (
               <div
                 key={i}
                 className="flex items-start gap-2 rounded-lg p-2.5"
                 style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
               >
-                <span
-                  className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0"
-                  style={{ background: 'rgba(0,212,255,0.10)', color: 'var(--color-ooda-accent)' }}
-                >
-                  {item.team}
-                </span>
-                <span className="text-xs text-[var(--color-ooda-text-muted)]">{item.action}</span>
+                <span className="text-[var(--color-ooda-accent)] font-bold text-xs flex-shrink-0">{i + 1}.</span>
+                <span className="text-xs text-[var(--color-ooda-text-muted)]">{item}</span>
               </div>
             ))}
           </div>
@@ -206,48 +271,52 @@ function ComparisonAssetCard({ data }) {
   if (!data || !data.sections?.length) return null;
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.title}</div>
-
-      {data.sections.map((section, si) => (
-        <div key={si}>
-          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">
-            {section.name}
-          </div>
-          <div className="flex flex-col gap-1">
-            {section.data?.slice(0, 4).map((row, ri) => (
-              <div
-                key={ri}
-                className="flex items-center text-[11px] gap-2 py-1.5 px-2 rounded"
-                style={{ background: ri % 2 === 0 ? 'var(--color-ooda-surface-elevated)' : 'transparent' }}
-              >
-                <span className="text-[var(--color-ooda-text-dim)] w-28 flex-shrink-0 truncate font-medium">{row.metric}</span>
-                <span className={`flex-1 font-medium ${row.advantage === 'us' ? 'text-[var(--color-stable)]' : 'text-[var(--color-ooda-text-muted)]'}`}>
-                  {row.us}
-                </span>
-                <span className={`flex-1 ${row.advantage === 'them' ? 'text-[var(--color-threat)]' : 'text-[var(--color-ooda-text-dim)]'}`}>
-                  {row.them}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.title}</div>
+        <CopyButton text={data.summary || ''} />
+      </div>
 
       {data.summary && (
-        <div className="text-xs text-[var(--color-ooda-text-muted)] mt-1 leading-relaxed italic">
-          {data.summary.conclusion}
-        </div>
+        <div className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed italic">{data.summary}</div>
       )}
+
+      {data.sections.map((section, si) => (
+        <div
+          key={si}
+          className="rounded-lg p-3"
+          style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+        >
+          <div className="text-[10px] text-[var(--color-ooda-accent)] uppercase tracking-wider font-semibold mb-1.5">
+            {section.heading}
+          </div>
+          <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">
+            {section.content}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
 
-// ── Asset Expander Card ────────────────────────────────────────────────────────
+// ── Asset Card (PRD §14 — expand/collapse) ─────────────────────────────────────
 
-function AssetExpanderCard({ assetKey, assetData, isExpanded, onToggle }) {
+function AssetCard({ assetKey, assetData, isExpanded, onToggle }) {
   const icon = ASSET_ICONS[assetKey] || '📄';
   const label = ASSET_LABELS[assetKey] || assetKey;
   const hasData = assetData && Object.keys(assetData).length > 0;
+
+  // Get short preview text for collapsed state
+  const getPreview = () => {
+    if (!hasData) return 'Not available';
+    switch (assetKey) {
+      case 'retention_email': return assetData.subject || 'Email generated';
+      case 'battlecard': return assetData.primary_objection || 'Battlecard ready';
+      case 'social_response': return `${assetData.platform} · ${assetData.post_type}`;
+      case 'internal_alert': return `#${assetData.channel} · ${assetData.priority}`;
+      case 'comparison_report': return `${(assetData.sections || []).length} sections`;
+      default: return 'Generated';
+    }
+  };
 
   const renderDetail = () => {
     switch (assetKey) {
@@ -262,6 +331,7 @@ function AssetExpanderCard({ assetKey, assetData, isExpanded, onToggle }) {
 
   return (
     <div
+      id={`asset-${assetKey}`}
       className="card animate-fade-in"
       style={{
         cursor: hasData ? 'pointer' : 'default',
@@ -276,15 +346,22 @@ function AssetExpanderCard({ assetKey, assetData, isExpanded, onToggle }) {
           <div>
             <div className="text-sm font-semibold text-[var(--color-ooda-text)]">{label}</div>
             <div className="text-[10px] text-[var(--color-ooda-text-dim)]">
-              {hasData ? 'Generated ✓' : 'Not available'}
+              {hasData ? getPreview() : 'Not available'}
             </div>
           </div>
         </div>
-        {hasData && (
-          <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
-            {isExpanded ? '▲ Collapse' : '▼ Expand'}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {hasData && (
+            <span className="badge" style={{ background: 'rgba(0,230,118,0.10)', color: 'var(--color-stable)', border: '1px solid rgba(0,230,118,0.2)', fontSize: '0.55rem' }}>
+              ✓ READY
+            </span>
+          )}
+          {hasData && (
+            <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
+              {isExpanded ? '▲' : '▼'}
+            </span>
+          )}
+        </div>
       </div>
 
       {isExpanded && hasData && (
@@ -300,6 +377,39 @@ function AssetExpanderCard({ assetKey, assetData, isExpanded, onToggle }) {
   );
 }
 
+// ── Deployment Log ─────────────────────────────────────────────────────────────
+
+function DeploymentLog({ deployResult }) {
+  if (!deployResult) return null;
+  return (
+    <div
+      className="card animate-fade-in"
+      style={{ borderColor: 'rgba(0,230,118,0.3)', background: 'linear-gradient(135deg, var(--color-ooda-surface), rgba(0,230,118,0.04))' }}
+    >
+      <div className="text-center mb-3">
+        <div className="text-2xl mb-2">✅</div>
+        <h3 className="text-sm font-bold text-[var(--color-stable)]">
+          {deployResult.message || 'Deployment Complete'}
+        </h3>
+        <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-1">
+          Mode: {deployResult.deployment_mode || 'SIMULATED'}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1.5 text-xs text-[var(--color-ooda-text-muted)]">
+        {(deployResult.actions || []).map((action, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="text-[var(--color-stable)]">✓</span>
+            <span>{action}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-3 text-center italic">
+        Deployment simulated successfully. No real emails or posts sent.
+      </p>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function CounterStrike() {
@@ -310,6 +420,7 @@ export default function CounterStrike() {
   const [toast, setToast] = useState(null);
   const [expandedAsset, setExpandedAsset] = useState(null);
   const [currentSignalId, setCurrentSignalId] = useState(null);
+  const [deployResult, setDeployResult] = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -336,6 +447,7 @@ export default function CounterStrike() {
   const handleBuild = async (force = false) => {
     setLoading(true);
     setError(null);
+    setDeployResult(null);
 
     try {
       let signalId = currentSignalId;
@@ -368,7 +480,8 @@ export default function CounterStrike() {
 
     setDeploying(true);
     try {
-      await deployPackage(pkgId);
+      const res = await deployPackage(pkgId);
+      setDeployResult(res.data);
       setPackageResult(prev => ({
         ...prev,
         package: { ...prev.package, status: 'DEPLOYED', deployed: 1 },
@@ -405,10 +518,10 @@ export default function CounterStrike() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header — PRD §14 */}
       <div className="animate-fade-in">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          🎯 <span>Counter-Strike</span>
+        <h1 id="cs-title" className="text-xl font-bold flex items-center gap-2">
+          🎯 <span>Counter-Strike Package</span>
         </h1>
         <p className="text-xs text-[var(--color-ooda-text-dim)] mt-1">
           AI-generated counter-response packages — build, review, and deploy
@@ -480,7 +593,7 @@ export default function CounterStrike() {
           </h3>
           <p className="text-sm text-[var(--color-ooda-text-dim)] mt-2 max-w-xs mx-auto">
             Click "Build Counter-Strike" to generate a full response package.
-            The engine will run agents, debate, and create 5 deployable assets.
+            The engine generates 5 deployable assets based on debate results.
           </p>
         </div>
       )}
@@ -488,7 +601,7 @@ export default function CounterStrike() {
       {/* ── Package Results ───────────────────────────────────────────────── */}
       {!loading && packageResult && (
         <>
-          {/* Status Banner */}
+          {/* Status Banner — PRD §14 top section */}
           <div
             className="card animate-fade-in"
             style={{
@@ -504,7 +617,7 @@ export default function CounterStrike() {
                   {pkg?.title || 'Counter-Strike Package'}
                 </div>
                 <div className="text-[10px] text-[var(--color-ooda-text-dim)] mt-0.5">
-                  {signal?.competitor_name} · {signal?.signal_type?.replace('_', ' ')}
+                  {signal?.competitor_name} · {signal?.signal_type?.replace('_', ' ')} · {signal?.severity}
                 </div>
               </div>
               <span
@@ -516,13 +629,16 @@ export default function CounterStrike() {
                   fontSize: '0.65rem',
                 }}
               >
-                {isDeployed ? '✓ DEPLOYED' : '◯ PENDING'}
+                {isDeployed ? '✓ DEPLOYED' : '◯ READY'}
               </span>
             </div>
 
-            {/* Verdict + Stats */}
+            {/* Signal summary */}
+            <p className="text-xs text-[var(--color-ooda-text-muted)] mb-3">{signal?.summary}</p>
+
+            {/* Verdict + Stats grid */}
             <div
-              className="grid grid-cols-3 gap-3 mt-3 p-3 rounded-lg"
+              className="grid grid-cols-3 gap-3 p-3 rounded-lg"
               style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
             >
               <div className="text-center">
@@ -539,51 +655,29 @@ export default function CounterStrike() {
               </div>
               <div className="text-center">
                 <div className="text-sm font-mono font-bold text-[var(--color-ooda-accent)]">
-                  {packageResult.asset_count || 5}
+                  {debateVerdict?.market_entropy_score ? Math.round(debateVerdict.market_entropy_score) : '—'}
                 </div>
-                <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-0.5">Assets</div>
+                <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-0.5">Entropy</div>
               </div>
             </div>
           </div>
 
-          {/* Deploy Confirmation */}
-          {isDeployed && (
-            <div
-              className="card animate-fade-in"
-              style={{ borderColor: 'rgba(0,230,118,0.3)', background: 'linear-gradient(135deg, var(--color-ooda-surface), rgba(0,230,118,0.04))' }}
-            >
-              <div className="text-center">
-                <div className="text-2xl mb-2">✅</div>
-                <h3 className="text-sm font-bold text-[var(--color-stable)]">Deployment Complete (Simulated)</h3>
-                <div className="flex flex-col gap-1.5 mt-3 text-xs text-[var(--color-ooda-text-muted)]">
-                  <div>✓ Retention email prepared</div>
-                  <div>✓ Sales battlecard exported</div>
-                  <div>✓ Internal alert generated</div>
-                  <div>✓ Social response queued</div>
-                  <div>✓ Comparison report ready</div>
-                </div>
-                <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-3 italic">
-                  Deployment is simulated for demo safety. No real emails sent.
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Deployment Log (after deploy) */}
+          {isDeployed && <DeploymentLog deployResult={deployResult} />}
 
           {/* Section Header: Generated Assets */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-widest font-bold">
-              📦
-            </span>
+            <span className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-widest font-bold">📦</span>
             <span className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">
-              Generated Assets
+              Generated Assets ({packageResult.asset_count || 5})
             </span>
             <div className="flex-1" style={{ height: '1px', background: 'var(--color-ooda-border)' }} />
           </div>
 
-          {/* Asset Cards */}
+          {/* 5 Asset Cards — PRD §14 */}
           {assetKeys.map((key, i) => (
             <div key={key} style={{ animationDelay: `${i * 0.08}s` }}>
-              <AssetExpanderCard
+              <AssetCard
                 assetKey={key}
                 assetData={assets[key]}
                 isExpanded={expandedAsset === key}
@@ -593,15 +687,9 @@ export default function CounterStrike() {
           ))}
 
           {/* Phase footer */}
-          <div
-            className="text-center py-3 animate-fade-in"
-            style={{ borderTop: '1px solid var(--color-ooda-border)' }}
-          >
+          <div className="text-center py-3" style={{ borderTop: '1px solid var(--color-ooda-border)' }}>
             <p className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider">
-              Phase 5 · Counter-Strike Engine Complete
-            </p>
-            <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-1">
-              Deploy Mode: SIMULATED
+              Phase 5 · Counter-Strike Engine · Deploy Mode: SIMULATED
             </p>
           </div>
         </>
