@@ -1,15 +1,40 @@
 """
 OODA Pydantic Schemas
 Request and response models for all API endpoints.
+
+Phase 1: Added *Create schemas, renamed *Out → *Response for consistency,
+added APIMessageResponse and SeedResponse.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
+
+
+# ── Generic ───────────────────────────────────────────────────────────────────
+
+class APIMessageResponse(BaseModel):
+    """Standard envelope for simple success/failure messages."""
+    status: str
+    message: str
+
+
+class SeedResponse(APIMessageResponse):
+    """Response returned by POST /api/demo/seed."""
+    competitors_seeded: int
+    signals_seeded: int
+    reputations_seeded: int
 
 
 # ── Competitor ────────────────────────────────────────────────────────────────
 
-class CompetitorOut(BaseModel):
+class CompetitorCreate(BaseModel):
+    name: str
+    website_url: Optional[str] = None
+    pricing_url: Optional[str] = None
+    category: Optional[str] = None
+
+
+class CompetitorResponse(BaseModel):
     id: str
     name: str
     website_url: Optional[str] = None
@@ -22,9 +47,22 @@ class CompetitorOut(BaseModel):
 
 # ── Signal ────────────────────────────────────────────────────────────────────
 
-class SignalOut(BaseModel):
+class SignalCreate(BaseModel):
+    competitor_id: Optional[str] = None
+    source: str
+    signal_type: str
+    summary: str
+    raw_content: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    percentage_change: Optional[float] = None
+    severity: str = Field(default="MEDIUM", pattern="^(HIGH|MEDIUM|LOW)$")
+
+
+class SignalResponse(BaseModel):
     id: str
     competitor_id: Optional[str] = None
+    competitor_name: Optional[str] = None   # populated by route layer
     source: str
     signal_type: str
     summary: str
@@ -35,29 +73,16 @@ class SignalOut(BaseModel):
     severity: Optional[str] = None
     timestamp: Optional[str] = None
     processed: int = 0
-    competitor_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
 
-class SignalCreate(BaseModel):
-    competitor_id: str
-    source: str
-    signal_type: str
-    summary: str
-    raw_content: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
-    percentage_change: Optional[float] = None
-    severity: str = "MEDIUM"
-
-
 # ── Agent Verdict ─────────────────────────────────────────────────────────────
 
-class AgentVerdictOut(BaseModel):
+class AgentVerdictResponse(BaseModel):
     id: str
-    signal_id: Optional[str] = None
-    agent_name: Optional[str] = None
+    signal_id: str
+    agent_name: str
     verdict: Optional[str] = None
     confidence: Optional[float] = None
     reasoning: Optional[str] = None
@@ -72,9 +97,9 @@ class AgentVerdictOut(BaseModel):
 
 # ── Debate ────────────────────────────────────────────────────────────────────
 
-class DebateOut(BaseModel):
+class DebateResponse(BaseModel):
     id: str
-    signal_id: Optional[str] = None
+    signal_id: str
     final_verdict: Optional[str] = None
     final_confidence: Optional[float] = None
     conflict_summary: Optional[str] = None
@@ -88,9 +113,9 @@ class DebateOut(BaseModel):
 
 # ── Counter-Strike Package ───────────────────────────────────────────────────
 
-class CounterStrikePackageOut(BaseModel):
+class CounterStrikePackageResponse(BaseModel):
     id: str
-    signal_id: Optional[str] = None
+    signal_id: str
     debate_id: Optional[str] = None
     title: Optional[str] = None
     status: Optional[str] = None
@@ -107,7 +132,7 @@ class CounterStrikePackageOut(BaseModel):
 
 # ── Agent Reputation ──────────────────────────────────────────────────────────
 
-class AgentReputationOut(BaseModel):
+class AgentReputationResponse(BaseModel):
     agent_name: str
     reputation_score: float = 1.0
     total_debates: int = 0
@@ -119,16 +144,21 @@ class AgentReputationOut(BaseModel):
 
 # ── Entropy ───────────────────────────────────────────────────────────────────
 
-class EntropyScoreOut(BaseModel):
+class EntropyScoreResponse(BaseModel):
     score: float
     status: str
     reason: str
     components: dict
 
 
-# ── Generic ───────────────────────────────────────────────────────────────────
+# ── Legacy aliases (keep for any internal code still referencing *Out names) ──
+# These will be removed in Phase 2 once all routes are updated.
 
-class StatusResponse(BaseModel):
-    status: str
-    message: str
-    data: Optional[dict] = None
+CompetitorOut = CompetitorResponse
+SignalOut = SignalResponse
+AgentVerdictOut = AgentVerdictResponse
+DebateOut = DebateResponse
+CounterStrikePackageOut = CounterStrikePackageResponse
+AgentReputationOut = AgentReputationResponse
+StatusResponse = APIMessageResponse
+EntropyScoreOut = EntropyScoreResponse
