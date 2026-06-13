@@ -1,7 +1,7 @@
 /**
  * OODA API Service
  * Centralized API client for all backend endpoints.
- * Phase 3: Added agent analysis endpoints.
+ * Phase 4: Added debate engine endpoints.
  */
 
 import axios from 'axios';
@@ -45,9 +45,11 @@ export const getReputations = () => api.get('/agents/reputation');
 
 // ── Debate ──────────────────────────────────────────────────────────────────────
 
-export const runDebate = (signalId) => api.post(`/debate/run/${signalId}`);
+export const runDebate = (signalId, force = false) =>
+  api.post(`/debate/run/${signalId}${force ? '?force=true' : ''}`);
 export const getLatestDebate = () => api.get('/debate/latest');
-export const getDebate = (id) => api.get(`/debate/${id}`);
+export const getDebateById = (id) => api.get(`/debate/${id}`);
+export const getDebateBySignal = (signalId) => api.get(`/debate/by-signal/${signalId}`);
 
 // ── Counter-Strike ──────────────────────────────────────────────────────────────
 

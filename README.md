@@ -37,6 +37,8 @@ npm run dev
 2. Click **"Seed Demo"** to populate database
 3. Click **"Trigger Price Drop"** to simulate a live signal
 4. View signals, entropy score, and agent status on the dashboard
+5. Navigate to **"Agents"** tab → Click **"Run Agent Analysis"**
+6. View Marketing AI, Product AI, and Sales AI verdicts
 
 ## Project Structure
 
@@ -48,13 +50,20 @@ ooda/
 │   ├── database/             # Models, CRUD, seed data
 │   ├── api/                  # Routes & Pydantic schemas
 │   ├── agents/               # AI agent system (Phase 3)
+│   │   ├── base_agent.py     # BaseAgent abstract class
+│   │   ├── marketing_agent.py # Watcher — positioning & perception
+│   │   ├── product_agent.py  # Archaeologist — product strength
+│   │   ├── sales_agent.py    # Hunter — revenue & pipeline risk
+│   │   ├── strategy_agent.py # General — strategic synthesis (Phase 4)
+│   │   ├── agent_runner.py   # Orchestrator for running agents
+│   │   └── prompts.py        # Lens descriptions & prompt templates
 │   ├── debate/               # Debate engine (Phase 4)
 │   ├── counter_strike/       # Response generator (Phase 5)
 │   ├── intelligence/         # Entropy & competitor genome
 │   └── ingestion/            # Signal normalization
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/            # Dashboard, Signals, Debate, etc.
+│   │   ├── pages/            # Dashboard, Signals, Agent Analysis, etc.
 │   │   ├── components/       # Reusable UI components
 │   │   └── services/         # API client
 │   └── index.html
@@ -66,7 +75,7 @@ ooda/
 - [x] Phase 0 — Project foundation
 - [x] Phase 1 — Backend data models & seed APIs
 - [x] Phase 2 — Entropy engine
-- [ ] Phase 3 — Agent system
+- [x] Phase 3 — Agent system
 - [ ] Phase 4 — Debate engine
 - [ ] Phase 5 — Counter-Strike engine
 - [ ] Phase 6 — UI polish
