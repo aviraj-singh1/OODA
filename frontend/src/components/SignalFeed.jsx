@@ -80,13 +80,13 @@ export default function SignalFeed({ signals = [], onSignalClick }) {
                   {formatDate(signal.timestamp)}
                 </span>
                 <span className="text-xs text-[var(--color-ooda-text-dim)] capitalize">
-                  {signal.source?.replace('_', ' ')}
+                  {signal.source?.replaceAll('_', ' ')}
                 </span>
               </div>
             </div>
 
-            {/* Percentage change */}
-            {signal.percentage_change && (
+            {/* Percentage change — use != null to correctly show 0% changes */}
+            {signal.percentage_change != null && (
               <div className="text-right flex-shrink-0">
                 <span
                   className="text-lg font-bold font-mono"

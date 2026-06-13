@@ -1,27 +1,31 @@
 /**
- * Rivals — Competitor intelligence page.
+ * Rivals — Competitor intelligence page with error state.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getCompetitors } from '../services/api';
 
 export default function Rivals() {
   const [competitors, setCompetitors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchCompetitors = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getCompetitors();
+      setCompetitors(res.data);
+    } catch (err) {
+      setError('Failed to load competitor data.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await getCompetitors();
-        setCompetitors(res.data);
-      } catch (err) {
-        console.error('Failed to fetch competitors:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
-  }, []);
+    fetchCompetitors();
+  }, [fetchCompetitors]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -35,17 +39,33 @@ export default function Rivals() {
       </div>
 
       <div className="animate-fade-in animate-delay-1">
-        {loading ? (
+        {loading && (
           <div className="flex justify-center py-10">
             <div className="loading-spinner" />
           </div>
-        ) : competitors.length === 0 ? (
+        )}
+
+        {error && (
+          <div className="card" style={{ borderColor: 'var(--color-threat)' }}>
+            <p className="text-sm text-[var(--color-threat)]">⚠ {error}</p>
+            <button
+              onClick={fetchCompetitors}
+              className="mt-2 text-xs text-[var(--color-ooda-accent)] hover:underline"
+            >
+              Retry →
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && competitors.length === 0 && (
           <div className="card text-center py-8">
             <p className="text-[var(--color-ooda-text-dim)] text-sm">
               No competitors tracked yet. Seed demo data first.
             </p>
           </div>
-        ) : (
+        )}
+
+        {!loading && !error && competitors.length > 0 && (
           <div className="flex flex-col gap-3">
             {competitors.map((comp) => (
               <div key={comp.id} className="card">
@@ -56,20 +76,20 @@ export default function Rivals() {
                   </div>
 
                   {/* Info */}
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold">{comp.name}</h3>
-                    <p className="text-xs text-[var(--color-ooda-text-dim)]">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold truncate">{comp.name}</h3>
+                    <p className="text-xs text-[var(--color-ooda-text-dim)] truncate">
                       {comp.category || 'Uncategorized'}
                     </p>
                   </div>
 
-                  {/* Link */}
+                  {/* External link */}
                   {comp.website_url && (
                     <a
                       href={comp.website_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-[var(--color-ooda-accent)] hover:underline"
+                      className="text-xs text-[var(--color-ooda-accent)] hover:underline flex-shrink-0"
                     >
                       Visit →
                     </a>
@@ -80,8 +100,8 @@ export default function Rivals() {
                 {comp.pricing_url && (
                   <div className="mt-3 pt-3 border-t border-[var(--color-ooda-border)]">
                     <span className="text-xs text-[var(--color-ooda-text-dim)]">
-                      Pricing tracked: {' '}
-                      <span className="text-[var(--color-ooda-accent)] font-mono">
+                      Pricing tracked:{' '}
+                      <span className="text-[var(--color-ooda-accent)] font-mono break-all">
                         {comp.pricing_url}
                       </span>
                     </span>

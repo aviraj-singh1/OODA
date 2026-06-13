@@ -10,7 +10,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 function getEntropyColor(score) {
   if (score >= 81) return 'var(--color-threat)';
   if (score >= 61) return 'var(--color-warning)';
-  if (score >= 31) return '#eab308';
+  if (score >= 31) return '#f59e0b'; // amber-500, consistent with agent-sales
   return 'var(--color-stable)';
 }
 
@@ -24,9 +24,23 @@ function getEntropyStatus(score) {
 export default function EntropyGauge({ score = 0, reason = '' }) {
   const [animatedScore, setAnimatedScore] = useState(0);
 
+  // Smooth count-up animation
   useEffect(() => {
-    const timer = setTimeout(() => setAnimatedScore(score), 100);
-    return () => clearTimeout(timer);
+    if (score === 0) { setAnimatedScore(0); return; }
+    const duration = 1000;
+    const start = performance.now();
+    const from = animatedScore;
+    const to = score;
+
+    const step = (now) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setAnimatedScore(Math.round(from + (to - from) * eased));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    const raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score]);
 
   const progress = (animatedScore / 100) * CIRCUMFERENCE;
@@ -50,13 +64,13 @@ export default function EntropyGauge({ score = 0, reason = '' }) {
         </span>
       </div>
 
-      {/* SVG Gauge */}
+      {/* SVG Gauge — viewBox and rendered size match to avoid clipping */}
       <div className="relative z-10">
-        <svg width="140" height="140" viewBox="0 0 120 120">
+        <svg width="148" height="148" viewBox="0 0 148 148">
           {/* Background ring */}
           <circle
-            cx="60"
-            cy="60"
+            cx="74"
+            cy="74"
             r={RADIUS}
             fill="none"
             stroke="var(--color-ooda-border)"
@@ -64,8 +78,8 @@ export default function EntropyGauge({ score = 0, reason = '' }) {
           />
           {/* Progress ring */}
           <circle
-            cx="60"
-            cy="60"
+            cx="74"
+            cy="74"
             r={RADIUS}
             fill="none"
             stroke={color}
@@ -74,23 +88,22 @@ export default function EntropyGauge({ score = 0, reason = '' }) {
             strokeDasharray={CIRCUMFERENCE}
             strokeDashoffset={offset}
             className="entropy-ring"
-            transform="rotate(-90 60 60)"
+            transform="rotate(-90 74 74)"
             style={{ filter: `drop-shadow(0 0 8px ${color})` }}
           />
           {/* Score text */}
           <text
-            x="60"
-            y="55"
+            x="74"
+            y="69"
             textAnchor="middle"
             fill={color}
-            className="font-mono"
-            style={{ fontSize: '28px', fontWeight: 700 }}
+            style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}
           >
             {animatedScore}
           </text>
           <text
-            x="60"
-            y="72"
+            x="74"
+            y="86"
             textAnchor="middle"
             fill="var(--color-ooda-text-muted)"
             style={{ fontSize: '9px', fontWeight: 500, letterSpacing: '0.1em' }}

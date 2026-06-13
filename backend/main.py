@@ -19,12 +19,9 @@ from backend.api.routes.agents import router as agents_router
 from backend.api.routes.debate import router as debate_router
 from backend.api.routes.counter_strike import router as counter_strike_router
 
-
-# ── Lifespan ──────────────────────────────────────────────────────────────────
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database tables on startup."""
+    """Initialize database on startup."""
     init_db()
     yield
 
@@ -55,6 +52,7 @@ app.include_router(entropy_router)
 app.include_router(agents_router)
 app.include_router(debate_router)
 app.include_router(counter_strike_router)
+
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

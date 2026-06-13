@@ -20,6 +20,7 @@ export default function BottomNav() {
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.to === '/'}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all no-underline ${
                 isActive
