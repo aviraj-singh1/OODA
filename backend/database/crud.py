@@ -156,11 +156,23 @@ def get_verdicts_by_signal(db: Session, signal_id: str) -> list[AgentVerdict]:
     )
 
 
+def delete_verdicts_by_signal(db: Session, signal_id: str) -> int:
+    """Delete all agent verdicts for a given signal. Returns count deleted."""
+    count = (
+        db.query(AgentVerdict)
+        .filter(AgentVerdict.signal_id == signal_id)
+        .delete()
+    )
+    db.commit()
+    return count
+
+
 def create_verdict(
     db: Session,
     id: str,
     signal_id: str,
     agent_name: str,
+    agent_codename: Optional[str] = None,
     verdict: Optional[str] = None,
     confidence: Optional[float] = None,
     reasoning: Optional[str] = None,
@@ -174,6 +186,7 @@ def create_verdict(
         id=id,
         signal_id=signal_id,
         agent_name=agent_name,
+        agent_codename=agent_codename,
         verdict=verdict,
         confidence=confidence,
         reasoning=reasoning,

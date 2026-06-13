@@ -102,6 +102,7 @@ class AgentVerdict(Base):
     id = Column(String, primary_key=True)
     signal_id = Column(String, ForeignKey("signals.id", ondelete="CASCADE"), nullable=False)
     agent_name = Column(String, nullable=False)
+    agent_codename = Column(String, nullable=True)
     verdict = Column(String, nullable=True)
     confidence = Column(Float, nullable=True)
     reasoning = Column(Text, nullable=True)

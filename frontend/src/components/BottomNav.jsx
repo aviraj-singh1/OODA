@@ -8,7 +8,7 @@ const navItems = [
   { to: '/', label: 'Command', icon: '⚡' },
   { to: '/signals', label: 'Signals', icon: '📡' },
   { to: '/entropy', label: 'Entropy', icon: '🔥' },
-  { to: '/debate', label: 'Debate', icon: '⚔️' },
+  { to: '/debate', label: 'Agents', icon: '🤖' },
   { to: '/counter-strike', label: 'Strike', icon: '🎯' },
   { to: '/rivals', label: 'Rivals', icon: '👁️' },
 ];

@@ -4,6 +4,7 @@ Request and response models for all API endpoints.
 
 Phase 1: Added *Create schemas, renamed *Out → *Response for consistency,
 added APIMessageResponse and SeedResponse.
+Phase 3: Added AgentVerdictCreate, AgentRunResponse, agent_codename field.
 """
 
 from pydantic import BaseModel, Field
@@ -79,10 +80,25 @@ class SignalResponse(BaseModel):
 
 # ── Agent Verdict ─────────────────────────────────────────────────────────────
 
+class AgentVerdictCreate(BaseModel):
+    """Schema for creating a new agent verdict."""
+    signal_id: str
+    agent_name: str
+    agent_codename: Optional[str] = None
+    verdict: Optional[str] = None
+    confidence: Optional[float] = None
+    reasoning: Optional[str] = None
+    evidence_json: Optional[str] = None
+    recommended_action: Optional[str] = None
+    urgency: Optional[str] = None
+    reputation_weight: Optional[float] = 1.0
+
+
 class AgentVerdictResponse(BaseModel):
     id: str
     signal_id: str
     agent_name: str
+    agent_codename: Optional[str] = None
     verdict: Optional[str] = None
     confidence: Optional[float] = None
     reasoning: Optional[str] = None
@@ -93,6 +109,14 @@ class AgentVerdictResponse(BaseModel):
     created_at: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class AgentRunResponse(BaseModel):
+    """Response envelope for POST /api/agents/run/{signal_id}."""
+    status: str
+    signal_id: str
+    verdicts: list[AgentVerdictResponse]
+    message: str
 
 
 # ── Debate ────────────────────────────────────────────────────────────────────
@@ -149,5 +173,3 @@ class EntropyScoreResponse(BaseModel):
     status: str
     reason: str
     components: dict
-
-

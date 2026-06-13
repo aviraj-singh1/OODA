@@ -1,7 +1,7 @@
 /**
  * OODA API Service
  * Centralized API client for all backend endpoints.
- * Phase 2: Added genome and entropy component APIs.
+ * Phase 3: Added agent analysis endpoints.
  */
 
 import axios from 'axios';
@@ -23,6 +23,7 @@ export const triggerPriceDrop = () => api.post('/demo/trigger-price-drop');
 
 export const getSignals = (limit = 50) => api.get(`/signals?limit=${limit}`);
 export const getSignal = (id) => api.get(`/signals/${id}`);
+export const getLatestSignal = () => api.get('/signals/latest');
 export const createSignal = (data) => api.post('/signals', data);
 export const classifySignal = (id) => api.get(`/signals/${id}/classify`);
 
@@ -36,8 +37,10 @@ export const getEntropyHistory = () => api.get('/entropy/history');
 
 // ── Agents ──────────────────────────────────────────────────────────────────────
 
-export const runAgents = (signalId) => api.post(`/agents/run/${signalId}`);
-export const getVerdicts = (signalId) => api.get(`/agents/verdicts/${signalId}`);
+export const runAgents = (signalId, force = false) =>
+  api.post(`/agents/run/${signalId}${force ? '?force=true' : ''}`);
+export const getAgentVerdicts = (signalId) => api.get(`/agents/verdicts/${signalId}`);
+export const getLatestAgentVerdicts = () => api.get('/agents/latest');
 export const getReputations = () => api.get('/agents/reputation');
 
 // ── Debate ──────────────────────────────────────────────────────────────────────
