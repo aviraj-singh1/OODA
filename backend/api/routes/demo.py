@@ -2,7 +2,8 @@
 Demo Routes — Seed data and trigger demo scenarios.
 """
 
-from fastapi import APIRouter, Depends
+import logging
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database.models import get_db
 from backend.database.seed_demo import seed_demo_data
@@ -11,18 +12,24 @@ from backend.api.schemas import StatusResponse
 from datetime import datetime
 import uuid
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/demo", tags=["Demo"])
 
 
 @router.post("/seed", response_model=StatusResponse)
 def seed_data():
     """Wipe and re-seed the database with demo data."""
-    result = seed_demo_data()
-    return StatusResponse(
-        status="success",
-        message="Demo data seeded successfully.",
-        data=result,
-    )
+    try:
+        result = seed_demo_data()
+        return StatusResponse(
+            status="success",
+            message="Demo data seeded successfully.",
+            data=result,
+        )
+    except Exception as e:
+        logger.error(f"Seed endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Seed failed: {str(e)}")
 
 
 @router.post("/trigger-price-drop", response_model=StatusResponse)
@@ -31,6 +38,14 @@ def trigger_price_drop(db: Session = Depends(get_db)):
     Simulate a real-time price drop signal from RivalFlow.
     Creates a new signal as if just detected.
     """
+    # Guard: ensure competitor exists before creating FK-linked signal
+    competitor = crud.get_competitor(db, "comp_001")
+    if not competitor:
+        raise HTTPException(
+            status_code=400,
+            detail="Competitor comp_001 not found. Run POST /api/demo/seed first.",
+        )
+
     signal_id = f"sig_{uuid.uuid4().hex[:8]}"
     now = datetime.now().isoformat()
 

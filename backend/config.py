@@ -4,9 +4,16 @@ Loads environment variables and provides app-wide settings.
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the backend directory (works whether run from root or backend/)
+_backend_dir = Path(__file__).resolve().parent
+_env_path = _backend_dir / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
+else:
+    load_dotenv()  # Fallback to cwd/.env
 
 
 class Settings:

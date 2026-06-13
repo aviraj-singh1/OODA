@@ -10,7 +10,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 function getEntropyColor(score) {
   if (score >= 81) return 'var(--color-threat)';
   if (score >= 61) return 'var(--color-warning)';
-  if (score >= 31) return '#f59e0b';
+  if (score >= 31) return '#eab308';
   return 'var(--color-stable)';
 }
 

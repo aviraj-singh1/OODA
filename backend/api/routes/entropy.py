@@ -3,7 +3,6 @@ Entropy Routes — Placeholder for Phase 2.
 """
 
 from fastapi import APIRouter
-from backend.api.schemas import StatusResponse
 
 router = APIRouter(prefix="/api/entropy", tags=["Entropy"])
 

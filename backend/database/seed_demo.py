@@ -3,19 +3,25 @@ OODA Seed Demo Data
 Pre-built demo scenario: RivalFlow drops pricing from ₹999 to ₹749.
 """
 
+import logging
 from datetime import datetime
 from backend.database.models import SessionLocal
 from backend.database import crud
 
+logger = logging.getLogger(__name__)
 
-DEMO_COMPETITOR = {
-    "id": "comp_001",
-    "name": "RivalFlow",
-    "website_url": "https://rivalflow.io",
-    "pricing_url": "https://rivalflow.io/pricing",
-    "category": "Marketing Automation",
-    "created_at": datetime.now().isoformat(),
-}
+
+def _build_demo_competitor():
+    """Build competitor dict with fresh timestamp each call."""
+    return {
+        "id": "comp_001",
+        "name": "RivalFlow",
+        "website_url": "https://rivalflow.io",
+        "pricing_url": "https://rivalflow.io/pricing",
+        "category": "Marketing Automation",
+        "created_at": datetime.now().isoformat(),
+    }
+
 
 DEMO_SIGNALS = [
     {
@@ -77,14 +83,15 @@ def seed_demo_data():
         # Clear existing data
         crud.clear_all_data(db)
 
-        # Seed competitor
-        crud.create_competitor(db, **DEMO_COMPETITOR)
+        # Seed competitor (fresh timestamp each call)
+        crud.create_competitor(db, **_build_demo_competitor())
 
         # Seed signals
         for sig in DEMO_SIGNALS:
             crud.create_signal(db, **sig)
 
         # Seed reputations
+        now = datetime.now().isoformat()
         for rep in DEMO_REPUTATIONS:
             crud.create_or_update_reputation(
                 db,
@@ -96,7 +103,7 @@ def seed_demo_data():
             if db_rep:
                 db_rep.total_debates = rep["total_debates"]
                 db_rep.correct_predictions = rep["correct_predictions"]
-                db_rep.updated_at = datetime.now().isoformat()
+                db_rep.updated_at = now
                 db.commit()
 
         return {
@@ -105,5 +112,9 @@ def seed_demo_data():
             "signals": len(DEMO_SIGNALS),
             "reputations": len(DEMO_REPUTATIONS),
         }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Seed failed: {e}")
+        raise
     finally:
         db.close()

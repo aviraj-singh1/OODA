@@ -4,6 +4,7 @@ Observe → Orient → Decide → Act
 Real-Time Competitive Intelligence & Counter-Strategy Engine
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
@@ -18,10 +19,21 @@ from backend.api.routes.agents import router as agents_router
 from backend.api.routes.debate import router as debate_router
 from backend.api.routes.counter_strike import router as counter_strike_router
 
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database tables on startup."""
+    init_db()
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description=settings.APP_DESCRIPTION,
+    lifespan=lifespan,
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -43,14 +55,6 @@ app.include_router(entropy_router)
 app.include_router(agents_router)
 app.include_router(debate_router)
 app.include_router(counter_strike_router)
-
-# ── Startup ───────────────────────────────────────────────────────────────────
-
-
-@app.on_event("startup")
-def on_startup():
-    """Initialize database tables on first run."""
-    init_db()
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
