@@ -1,25 +1,611 @@
 /**
- * CounterStrike — Counter-strategy response page.
- * Placeholder for Phase 5.
+ * CounterStrike — Phase 5: Full Counter-Strike package page.
+ *
+ * Flow:
+ *   1. Build Counter-Strike (calls full pipeline: agents → debate → assets)
+ *   2. View generated assets (email, battlecard, social, alert, comparison)
+ *   3. Deploy (simulated)
  */
 
-import CounterStrikePanel from '../components/CounterStrikePanel';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  buildCounterStrike,
+  getLatestPackage,
+  deployPackage,
+  getLatestSignal,
+} from '../services/api';
+
+// ── Styling constants ──────────────────────────────────────────────────────────
+
+const ASSET_ICONS = {
+  retention_email: '✉️',
+  battlecard: '⚔️',
+  social_response: '📱',
+  internal_alert: '🔔',
+  comparison_report: '📊',
+};
+
+const ASSET_LABELS = {
+  retention_email: 'Retention Email',
+  battlecard: 'Sales Battlecard',
+  social_response: 'Social Response',
+  internal_alert: 'Internal Alert',
+  comparison_report: 'Comparison Report',
+};
+
+const VERDICT_COLORS = {
+  THREAT: { color: 'var(--color-threat)', bg: 'rgba(255,59,59,0.10)', border: 'rgba(255,59,59,0.3)' },
+  OPPORTUNITY: { color: 'var(--color-stable)', bg: 'rgba(0,230,118,0.10)', border: 'rgba(0,230,118,0.3)' },
+  NEUTRAL: { color: 'var(--color-neutral)', bg: 'rgba(132,146,166,0.10)', border: 'rgba(132,146,166,0.3)' },
+};
+
+// ── Asset Detail Cards ─────────────────────────────────────────────────────────
+
+function EmailAssetCard({ data }) {
+  if (!data) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">Subject Line</div>
+      <div className="text-sm font-semibold text-[var(--color-ooda-text)]">{data.subject}</div>
+
+      <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-2">Preview</div>
+      <div
+        className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed whitespace-pre-line rounded-lg p-3"
+        style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+      >
+        {data.body?.substring(0, 300)}{data.body?.length > 300 ? '...' : ''}
+      </div>
+
+      <div className="flex items-center gap-4 mt-1">
+        <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
+          Tone: <span className="text-[var(--color-ooda-text-muted)] font-medium">{data.tone}</span>
+        </span>
+        <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
+          Segment: <span className="text-[var(--color-ooda-accent)] font-medium">{data.target_segment}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function BattlecardAssetCard({ data }) {
+  if (!data) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.title}</div>
+
+      {data.objection && (
+        <div className="rounded-lg p-3" style={{ background: 'rgba(255,59,59,0.06)', border: '1px solid rgba(255,59,59,0.15)' }}>
+          <div className="text-[10px] text-[var(--color-threat)] uppercase tracking-wider font-semibold mb-1">Objection</div>
+          <div className="text-xs text-[var(--color-ooda-text-muted)] italic">"{data.objection}"</div>
+        </div>
+      )}
+
+      {data.response && (
+        <div className="rounded-lg p-3" style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)' }}>
+          <div className="text-[10px] text-[var(--color-stable)] uppercase tracking-wider font-semibold mb-1">Response</div>
+          <div className="text-xs text-[var(--color-ooda-text-muted)]">{data.response}</div>
+        </div>
+      )}
+
+      {data.talking_points?.length > 0 && (
+        <div className="mt-1">
+          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">Talking Points</div>
+          <ul className="flex flex-col gap-1">
+            {data.talking_points.slice(0, 4).map((pt, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="text-[var(--color-ooda-accent)] mt-0.5">•</span>
+                <span className="text-xs text-[var(--color-ooda-text-muted)]">{pt}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {data.key_differentiators?.length > 0 && (
+        <div className="mt-2">
+          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">Key Differentiators</div>
+          <div className="flex flex-col gap-1">
+            {data.key_differentiators.slice(0, 3).map((d, i) => (
+              <div key={i} className="flex items-center text-xs gap-2">
+                <span className="text-[var(--color-ooda-text-dim)] w-24 flex-shrink-0 truncate">{d.feature}</span>
+                <span className="text-[var(--color-stable)] flex-1 font-medium">{d.us}</span>
+                <span className="text-[var(--color-ooda-text-dim)]">vs</span>
+                <span className="text-[var(--color-threat)] flex-1">{d.them}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SocialAssetCard({ data }) {
+  if (!data) return null;
+  const posts = data.posts || [];
+  return (
+    <div className="flex flex-col gap-3">
+      {posts.map((post, i) => (
+        <div
+          key={i}
+          className="rounded-lg p-3"
+          style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-ooda-accent)' }}>
+              {post.platform}
+            </span>
+            <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
+              {post.character_count} chars
+            </span>
+          </div>
+          <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed whitespace-pre-line">
+            {post.content}
+          </p>
+        </div>
+      ))}
+
+      {data.hashtags?.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {data.hashtags.map((tag, i) => (
+            <span
+              key={i}
+              className="text-[10px] px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(0,212,255,0.10)', color: 'var(--color-ooda-accent)', border: '1px solid rgba(0,212,255,0.2)' }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {data.strategy_notes && (
+        <div className="text-[10px] text-[var(--color-ooda-text-dim)] italic mt-1">
+          📌 {data.strategy_notes}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AlertAssetCard({ data }) {
+  if (!data) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.headline}</div>
+      <p className="text-xs text-[var(--color-ooda-text-muted)]">{data.summary}</p>
+
+      {data.action_items?.length > 0 && (
+        <div className="mt-1">
+          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">Action Items by Team</div>
+          <div className="flex flex-col gap-2">
+            {data.action_items.map((item, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 rounded-lg p-2.5"
+                style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+              >
+                <span
+                  className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0"
+                  style={{ background: 'rgba(0,212,255,0.10)', color: 'var(--color-ooda-accent)' }}
+                >
+                  {item.team}
+                </span>
+                <span className="text-xs text-[var(--color-ooda-text-muted)]">{item.action}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComparisonAssetCard({ data }) {
+  if (!data || !data.sections?.length) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-sm font-bold text-[var(--color-ooda-text)]">{data.title}</div>
+
+      {data.sections.map((section, si) => (
+        <div key={si}>
+          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mb-1.5">
+            {section.name}
+          </div>
+          <div className="flex flex-col gap-1">
+            {section.data?.slice(0, 4).map((row, ri) => (
+              <div
+                key={ri}
+                className="flex items-center text-[11px] gap-2 py-1.5 px-2 rounded"
+                style={{ background: ri % 2 === 0 ? 'var(--color-ooda-surface-elevated)' : 'transparent' }}
+              >
+                <span className="text-[var(--color-ooda-text-dim)] w-28 flex-shrink-0 truncate font-medium">{row.metric}</span>
+                <span className={`flex-1 font-medium ${row.advantage === 'us' ? 'text-[var(--color-stable)]' : 'text-[var(--color-ooda-text-muted)]'}`}>
+                  {row.us}
+                </span>
+                <span className={`flex-1 ${row.advantage === 'them' ? 'text-[var(--color-threat)]' : 'text-[var(--color-ooda-text-dim)]'}`}>
+                  {row.them}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {data.summary && (
+        <div className="text-xs text-[var(--color-ooda-text-muted)] mt-1 leading-relaxed italic">
+          {data.summary.conclusion}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Asset Expander Card ────────────────────────────────────────────────────────
+
+function AssetExpanderCard({ assetKey, assetData, isExpanded, onToggle }) {
+  const icon = ASSET_ICONS[assetKey] || '📄';
+  const label = ASSET_LABELS[assetKey] || assetKey;
+  const hasData = assetData && Object.keys(assetData).length > 0;
+
+  const renderDetail = () => {
+    switch (assetKey) {
+      case 'retention_email':    return <EmailAssetCard data={assetData} />;
+      case 'battlecard':         return <BattlecardAssetCard data={assetData} />;
+      case 'social_response':    return <SocialAssetCard data={assetData} />;
+      case 'internal_alert':     return <AlertAssetCard data={assetData} />;
+      case 'comparison_report':  return <ComparisonAssetCard data={assetData} />;
+      default: return <pre className="text-xs text-[var(--color-ooda-text-dim)] overflow-auto">{JSON.stringify(assetData, null, 2)}</pre>;
+    }
+  };
+
+  return (
+    <div
+      className="card animate-fade-in"
+      style={{
+        cursor: hasData ? 'pointer' : 'default',
+        transition: 'all 0.3s ease',
+        borderColor: isExpanded ? 'rgba(0,212,255,0.3)' : undefined,
+      }}
+      onClick={() => hasData && onToggle()}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-xl">{icon}</span>
+          <div>
+            <div className="text-sm font-semibold text-[var(--color-ooda-text)]">{label}</div>
+            <div className="text-[10px] text-[var(--color-ooda-text-dim)]">
+              {hasData ? 'Generated ✓' : 'Not available'}
+            </div>
+          </div>
+        </div>
+        {hasData && (
+          <span className="text-[10px] text-[var(--color-ooda-text-dim)]">
+            {isExpanded ? '▲ Collapse' : '▼ Expand'}
+          </span>
+        )}
+      </div>
+
+      {isExpanded && hasData && (
+        <div
+          className="mt-4 pt-4"
+          style={{ borderTop: '1px solid var(--color-ooda-border)' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {renderDetail()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function CounterStrike() {
+  const [packageResult, setPackageResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [expandedAsset, setExpandedAsset] = useState(null);
+  const [currentSignalId, setCurrentSignalId] = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  // Try to load existing package on mount
+  const loadExisting = useCallback(async () => {
+    try {
+      const res = await getLatestPackage();
+      if (res.data?.package) {
+        setPackageResult(res.data);
+        setCurrentSignalId(res.data.signal?.id || res.data.package?.signal_id);
+      }
+    } catch {
+      // No package yet — that's fine
+    }
+  }, []);
+
+  useEffect(() => {
+    loadExisting();
+  }, [loadExisting]);
+
+  const handleBuild = async (force = false) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      let signalId = currentSignalId;
+      if (!signalId) {
+        const sigRes = await getLatestSignal();
+        signalId = sigRes.data?.id;
+        setCurrentSignalId(signalId);
+      }
+
+      if (!signalId) {
+        setError('No signals found. Seed demo data first from the Dashboard.');
+        setLoading(false);
+        return;
+      }
+
+      const res = await buildCounterStrike(signalId, force);
+      setPackageResult(res.data);
+      showToast('🎯 Counter-Strike package built! 5 assets generated.');
+    } catch (err) {
+      const detail = err?.response?.data?.detail || err.message || 'Failed to build package';
+      setError(detail);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeploy = async () => {
+    const pkgId = packageResult?.package?.id;
+    if (!pkgId) return;
+
+    setDeploying(true);
+    try {
+      await deployPackage(pkgId);
+      setPackageResult(prev => ({
+        ...prev,
+        package: { ...prev.package, status: 'DEPLOYED', deployed: 1 },
+      }));
+      showToast('✅ Counter-Strike deployed (simulated)! All assets activated.');
+    } catch (err) {
+      showToast('Failed to deploy package.', 'error');
+    } finally {
+      setDeploying(false);
+    }
+  };
+
+  const pkg = packageResult?.package;
+  const signal = packageResult?.signal;
+  const debateVerdict = packageResult?.debate_verdict;
+  const assets = packageResult?.assets || {};
+  const isDeployed = pkg?.deployed === 1 || pkg?.status === 'DEPLOYED';
+  const verdictStyle = VERDICT_COLORS[debateVerdict?.final_verdict] || VERDICT_COLORS.NEUTRAL;
+
+  const assetKeys = ['retention_email', 'battlecard', 'social_response', 'internal_alert', 'comparison_report'];
+
   return (
     <div className="flex flex-col gap-5">
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-2xl animate-fade-in max-w-lg mx-auto ${
+            toast.type === 'error'
+              ? 'bg-[rgba(255,59,59,0.15)] border border-[var(--color-threat)] text-[var(--color-threat)]'
+              : 'bg-[rgba(0,230,118,0.12)] border border-[var(--color-stable)] text-[var(--color-stable)]'
+          }`}
+        >
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Header */}
       <div className="animate-fade-in">
         <h1 className="text-xl font-bold flex items-center gap-2">
           🎯 <span>Counter-Strike</span>
         </h1>
         <p className="text-xs text-[var(--color-ooda-text-dim)] mt-1">
-          AI-generated counter-response packages
+          AI-generated counter-response packages — build, review, and deploy
         </p>
       </div>
 
-      <div className="animate-fade-in animate-delay-1">
-        <CounterStrikePanel />
+      {/* Action Buttons */}
+      <div className="flex gap-3 animate-fade-in animate-delay-1">
+        <button
+          onClick={() => handleBuild(false)}
+          disabled={loading || deploying}
+          className="btn-primary flex-1 text-xs"
+          id="build-cs-btn"
+        >
+          {loading ? (
+            <>
+              <span className="loading-spinner" style={{ width: 14, height: 14 }} />
+              Building...
+            </>
+          ) : (
+            '🎯 Build Counter-Strike'
+          )}
+        </button>
+        {pkg && !isDeployed && (
+          <button
+            onClick={handleDeploy}
+            disabled={loading || deploying}
+            className="btn-primary btn-danger flex-1 text-xs"
+            id="deploy-cs-btn"
+          >
+            {deploying ? (
+              <>
+                <span className="loading-spinner" style={{ width: 14, height: 14 }} />
+                Deploying...
+              </>
+            ) : (
+              '🚀 Deploy Counter-Strike'
+            )}
+          </button>
+        )}
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="card card-threat animate-fade-in">
+          <p className="text-sm text-[var(--color-threat)] font-medium">⚠ {error}</p>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="card text-center py-12 animate-fade-in">
+          <div className="loading-spinner mx-auto mb-4" />
+          <p className="text-sm text-[var(--color-ooda-text-muted)]">
+            Running full Counter-Strike pipeline...
+          </p>
+          <p className="text-xs text-[var(--color-ooda-text-dim)] mt-1">
+            Agents → Debate → Generate 5 Assets
+          </p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !packageResult && !error && (
+        <div className="card text-center py-10 animate-fade-in animate-delay-2">
+          <div className="text-3xl mb-3">🎯</div>
+          <h3 className="text-lg font-semibold text-[var(--color-ooda-text)]">
+            Counter-Strike Engine
+          </h3>
+          <p className="text-sm text-[var(--color-ooda-text-dim)] mt-2 max-w-xs mx-auto">
+            Click "Build Counter-Strike" to generate a full response package.
+            The engine will run agents, debate, and create 5 deployable assets.
+          </p>
+        </div>
+      )}
+
+      {/* ── Package Results ───────────────────────────────────────────────── */}
+      {!loading && packageResult && (
+        <>
+          {/* Status Banner */}
+          <div
+            className="card animate-fade-in"
+            style={{
+              borderColor: isDeployed ? 'rgba(0,230,118,0.4)' : verdictStyle.border,
+              background: isDeployed
+                ? 'linear-gradient(135deg, var(--color-ooda-surface), rgba(0,230,118,0.06))'
+                : `linear-gradient(135deg, var(--color-ooda-surface), ${verdictStyle.bg})`,
+            }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <div className="text-sm font-bold text-[var(--color-ooda-text)]">
+                  {pkg?.title || 'Counter-Strike Package'}
+                </div>
+                <div className="text-[10px] text-[var(--color-ooda-text-dim)] mt-0.5">
+                  {signal?.competitor_name} · {signal?.signal_type?.replace('_', ' ')}
+                </div>
+              </div>
+              <span
+                className="badge"
+                style={{
+                  background: isDeployed ? 'rgba(0,230,118,0.15)' : 'rgba(245,158,11,0.15)',
+                  color: isDeployed ? 'var(--color-stable)' : '#f59e0b',
+                  border: `1px solid ${isDeployed ? 'rgba(0,230,118,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                  fontSize: '0.65rem',
+                }}
+              >
+                {isDeployed ? '✓ DEPLOYED' : '◯ PENDING'}
+              </span>
+            </div>
+
+            {/* Verdict + Stats */}
+            <div
+              className="grid grid-cols-3 gap-3 mt-3 p-3 rounded-lg"
+              style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+            >
+              <div className="text-center">
+                <div className="text-sm font-bold" style={{ color: verdictStyle.color }}>
+                  {debateVerdict?.final_verdict || '—'}
+                </div>
+                <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-0.5">Verdict</div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm font-mono font-bold text-[var(--color-ooda-text)]">
+                  {debateVerdict?.final_confidence ? `${Math.round(debateVerdict.final_confidence * 100)}%` : '—'}
+                </div>
+                <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-0.5">Confidence</div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm font-mono font-bold text-[var(--color-ooda-accent)]">
+                  {packageResult.asset_count || 5}
+                </div>
+                <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold mt-0.5">Assets</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Deploy Confirmation */}
+          {isDeployed && (
+            <div
+              className="card animate-fade-in"
+              style={{ borderColor: 'rgba(0,230,118,0.3)', background: 'linear-gradient(135deg, var(--color-ooda-surface), rgba(0,230,118,0.04))' }}
+            >
+              <div className="text-center">
+                <div className="text-2xl mb-2">✅</div>
+                <h3 className="text-sm font-bold text-[var(--color-stable)]">Deployment Complete (Simulated)</h3>
+                <div className="flex flex-col gap-1.5 mt-3 text-xs text-[var(--color-ooda-text-muted)]">
+                  <div>✓ Retention email prepared</div>
+                  <div>✓ Sales battlecard exported</div>
+                  <div>✓ Internal alert generated</div>
+                  <div>✓ Social response queued</div>
+                  <div>✓ Comparison report ready</div>
+                </div>
+                <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-3 italic">
+                  Deployment is simulated for demo safety. No real emails sent.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Section Header: Generated Assets */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-widest font-bold">
+              📦
+            </span>
+            <span className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">
+              Generated Assets
+            </span>
+            <div className="flex-1" style={{ height: '1px', background: 'var(--color-ooda-border)' }} />
+          </div>
+
+          {/* Asset Cards */}
+          {assetKeys.map((key, i) => (
+            <div key={key} style={{ animationDelay: `${i * 0.08}s` }}>
+              <AssetExpanderCard
+                assetKey={key}
+                assetData={assets[key]}
+                isExpanded={expandedAsset === key}
+                onToggle={() => setExpandedAsset(expandedAsset === key ? null : key)}
+              />
+            </div>
+          ))}
+
+          {/* Phase footer */}
+          <div
+            className="text-center py-3 animate-fade-in"
+            style={{ borderTop: '1px solid var(--color-ooda-border)' }}
+          >
+            <p className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider">
+              Phase 5 · Counter-Strike Engine Complete
+            </p>
+            <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-1">
+              Deploy Mode: SIMULATED
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
