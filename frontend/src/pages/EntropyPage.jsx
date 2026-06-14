@@ -1,5 +1,7 @@
 /**
- * EntropyPage — Phase 6: Clean entropy deep-dive.
+ * EntropyPage — Phase 8: Responsive entropy deep-dive.
+ * Desktop: Gauge + stats side-by-side, breakdown + timeline side-by-side.
+ * Mobile: Stacked layout.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -39,17 +41,15 @@ export default function EntropyPage() {
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="animate-fade-in">
+      <div className="animate-fade-in page-header">
         <button
           onClick={() => navigate('/')}
-          className="text-[10px] text-[var(--color-ooda-accent)] font-bold hover:underline mb-2 inline-block"
+          className="text-[10px] text-[var(--color-ooda-accent)] font-bold hover:underline mb-2 inline-block mobile-only"
         >
           ← Back to Dashboard
         </button>
-        <h1 className="text-lg font-black tracking-tight">Entropy Analysis</h1>
-        <p className="text-[11px] text-[var(--color-ooda-text-dim)] mt-0.5">
-          Market volatility breakdown and historical trends
-        </p>
+        <h1>Entropy Analysis</h1>
+        <p>Market volatility breakdown and historical trends</p>
       </div>
 
       {/* Error */}
@@ -67,35 +67,52 @@ export default function EntropyPage() {
 
       {!loading && !error && (
         <>
-          {/* Gauge */}
-          {entropy && (
-            <div className="animate-fade-in animate-delay-1">
+          {/* Gauge + Metadata — side by side on desktop */}
+          <div className="responsive-split animate-fade-in animate-delay-1">
+            {/* Gauge */}
+            {entropy && (
               <EntropyGauge score={entropy.score} reason={entropy.reason} />
-            </div>
-          )}
+            )}
 
-          {/* Metadata */}
-          {entropy && (
-            <div className="flex gap-2 animate-fade-in animate-delay-2">
-              <div className="card flex-1 text-center py-2.5">
-                <div className="text-base font-black font-mono text-[var(--color-ooda-accent)]">{entropy.signal_count}</div>
-                <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">Signals</div>
+            {/* Metadata */}
+            {entropy && (
+              <div className="flex flex-col gap-3">
+                <div className="responsive-grid-2">
+                  <div className="card text-center py-3">
+                    <div className="text-xl font-black font-mono text-[var(--color-ooda-accent)]">{entropy.signal_count}</div>
+                    <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mt-0.5">Signals Analyzed</div>
+                  </div>
+                  <div className="card text-center py-3">
+                    <div className="text-xl font-black font-mono text-[var(--color-ooda-text-muted)]">{entropy.window_hours}h</div>
+                    <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mt-0.5">Time Window</div>
+                  </div>
+                </div>
+                {entropy.status && (
+                  <div className="card text-center py-3">
+                    <div className="text-sm font-black uppercase tracking-wider"
+                      style={{
+                        color: entropy.score >= 81 ? 'var(--color-threat)'
+                             : entropy.score >= 61 ? 'var(--color-warning)'
+                             : entropy.score >= 31 ? '#f59e0b'
+                             : 'var(--color-stable)'
+                      }}>
+                      {entropy.status}
+                    </div>
+                    <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mt-0.5">Market Status</div>
+                  </div>
+                )}
               </div>
-              <div className="card flex-1 text-center py-2.5">
-                <div className="text-base font-black font-mono text-[var(--color-ooda-text-muted)]">{entropy.window_hours}h</div>
-                <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">Window</div>
-              </div>
-            </div>
-          )}
-
-          {/* Breakdown */}
-          <div className="animate-fade-in animate-delay-3">
-            {components && <EntropyBreakdown components={components.components} />}
+            )}
           </div>
 
-          {/* Timeline */}
-          <div className="animate-fade-in animate-delay-4">
-            <EntropyTimeline history={history} />
+          {/* Breakdown + Timeline — side by side on desktop */}
+          <div className="responsive-split">
+            <div className="animate-fade-in animate-delay-3">
+              {components && <EntropyBreakdown components={components.components} />}
+            </div>
+            <div className="animate-fade-in animate-delay-4">
+              <EntropyTimeline history={history} />
+            </div>
           </div>
         </>
       )}

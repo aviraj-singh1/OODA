@@ -1,7 +1,7 @@
 /**
- * Dashboard — Phase 7: Main command center.
- * Shows market entropy, active alert, quick actions, signal feed preview,
- * live intelligence status panel, and full demo flow automation.
+ * Dashboard — Phase 8: Responsive command center.
+ * Desktop: 2-col layout for gauge+alert, horizontal quick actions.
+ * Mobile: Stacked layout as before.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -166,9 +166,10 @@ export default function Dashboard() {
       {/* Header */}
       <div className="animate-fade-in">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">
+          <div className="page-header">
+            <h1>
               <span className="text-gradient">OODA</span>
+              <span className="desktop-only text-[var(--color-ooda-text-dim)] text-sm font-normal ml-3">Command Center</span>
             </h1>
             <p className="text-[11px] text-[var(--color-ooda-text-dim)] font-medium tracking-wider mt-0.5">
               Observe · Orient · Decide · Act
@@ -185,7 +186,7 @@ export default function Dashboard() {
 
       {/* Demo Controls (collapsible) */}
       {showDemo && (
-        <div className="flex flex-col gap-3 animate-fade-in">
+        <div className="responsive-split animate-fade-in">
           {/* Original Demo Controls */}
           <div className="card" style={{ borderColor: 'rgba(0,212,255,0.15)' }}>
             <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-2">
@@ -346,76 +347,79 @@ export default function Dashboard() {
 
       {!loading && !error && (
         <>
-          {/* Entropy Gauge */}
-          <div className="animate-fade-in animate-delay-1">
+          {/* Entropy + Active Alert — side by side on desktop */}
+          <div className="responsive-split animate-fade-in animate-delay-1">
+            {/* Entropy Gauge */}
             <EntropyGauge score={entropyScore} reason={entropy?.reason || ''} status={entropy?.status} />
-          </div>
 
-          {/* Active Alert */}
-          {latestHighSignal && (
-            <button
-              onClick={() => navigate('/signals')}
-              className="card card-threat animate-fade-in animate-delay-2 w-full text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-[var(--color-threat)] pulse-dot flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-[var(--color-threat)] uppercase font-bold tracking-wider">
-                    Active Alert
+            {/* Active Alert OR Agent Grid */}
+            <div className="flex flex-col gap-3">
+              {latestHighSignal && (
+                <button
+                  onClick={() => navigate('/signals')}
+                  className="card card-threat w-full text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[var(--color-threat)] pulse-dot flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-[var(--color-threat)] uppercase font-bold tracking-wider">
+                        Active Alert
+                      </div>
+                      <p className="text-sm text-[var(--color-ooda-text)] font-medium mt-0.5 line-clamp-2">
+                        {latestHighSignal.summary}
+                      </p>
+                    </div>
+                    {latestHighSignal.percentage_change != null && (
+                      <span className="text-lg font-black font-mono text-[var(--color-threat)] flex-shrink-0">
+                        {latestHighSignal.percentage_change}%
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-[var(--color-ooda-text)] font-medium mt-0.5 line-clamp-2">
-                    {latestHighSignal.summary}
-                  </p>
+                </button>
+              )}
+
+              {/* Agent Grid */}
+              {reputations.length > 0 && (
+                <div>
+                  <div className="section-label mb-2">Agents Online</div>
+                  <div className="responsive-grid-4">
+                    {reputations.slice(0, 4).map((rep) => {
+                      const meta = AGENT_META[rep.agent_name] || { code: '—', color: 'var(--color-neutral)' };
+                      return (
+                        <div
+                          key={rep.agent_name}
+                          className="rounded-xl p-2.5 text-center border border-[var(--color-ooda-border)]"
+                          style={{ background: 'var(--color-ooda-surface)' }}
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full mx-auto mb-1.5 pulse-dot"
+                            style={{ background: meta.color }}
+                          />
+                          <div className="text-[9px] font-bold tracking-wider uppercase" style={{ color: meta.color }}>
+                            {meta.code.slice(0, 6)}
+                          </div>
+                          <div className="text-[8px] text-[var(--color-ooda-text-dim)] mt-0.5 font-mono">
+                            {rep.reputation_score?.toFixed(2)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                {latestHighSignal.percentage_change != null && (
-                  <span className="text-lg font-black font-mono text-[var(--color-threat)] flex-shrink-0">
-                    {latestHighSignal.percentage_change}%
-                  </span>
-                )}
-              </div>
-            </button>
-          )}
+              )}
+            </div>
+          </div>
 
           {/* Quick Actions */}
           <div className="animate-fade-in animate-delay-3">
             <div className="section-label mb-2">Quick Actions</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="responsive-grid-4">
               <button onClick={() => navigate('/signals')}  className="btn-outline text-[11px]">◉ View Signals</button>
               <button onClick={() => navigate('/debate')}   className="btn-outline text-[11px]">◆ Run Agents</button>
               <button onClick={() => navigate('/debate')}   className="btn-outline text-[11px]">⚖ View Debate</button>
               <button onClick={() => navigate('/counter-strike')} className="btn-outline text-[11px]">⚡ Counter-Strike</button>
             </div>
           </div>
-
-          {/* Agent Grid */}
-          {reputations.length > 0 && (
-            <div className="animate-fade-in animate-delay-4">
-              <div className="section-label mb-2">Agents Online</div>
-              <div className="grid grid-cols-4 gap-2">
-                {reputations.slice(0, 4).map((rep) => {
-                  const meta = AGENT_META[rep.agent_name] || { code: '—', color: 'var(--color-neutral)' };
-                  return (
-                    <div
-                      key={rep.agent_name}
-                      className="rounded-xl p-2.5 text-center border border-[var(--color-ooda-border)]"
-                      style={{ background: 'var(--color-ooda-surface)' }}
-                    >
-                      <div
-                        className="w-2 h-2 rounded-full mx-auto mb-1.5 pulse-dot"
-                        style={{ background: meta.color }}
-                      />
-                      <div className="text-[9px] font-bold tracking-wider uppercase" style={{ color: meta.color }}>
-                        {meta.code.slice(0, 6)}
-                      </div>
-                      <div className="text-[8px] text-[var(--color-ooda-text-dim)] mt-0.5 font-mono">
-                        {rep.reputation_score?.toFixed(2)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Signal Feed Preview */}
           {hasSignals && (
@@ -429,7 +433,7 @@ export default function Dashboard() {
                   View All →
                 </button>
               </div>
-              <SignalFeed signals={signals.slice(0, 3)} compact />
+              <SignalFeed signals={signals.slice(0, 4)} compact />
             </div>
           )}
 

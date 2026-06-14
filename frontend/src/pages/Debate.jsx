@@ -1,6 +1,8 @@
 /**
- * Debate — Phase 6: Polished Agent Analysis & Strategy Verdict page.
- * Clean cards for each agent, then Strategy AI final verdict.
+ * Debate — Phase 8: Complete verdict-focused rewrite.
+ * Shows full agent analysis with reasoning, evidence, actions visible by default.
+ * Strategy AI verdict is a hero card with detailed breakdown.
+ * Desktop: 2-col grid for agent cards, full-width strategy verdict.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,105 +12,141 @@ import {
 } from '../services/api';
 
 const AGENTS = {
-  'Marketing AI': { code: 'Watcher',      role: 'Positioning & Perception', color: 'var(--color-agent-marketing)' },
-  'Product AI':   { code: 'Archaeologist', role: 'Product Strength',         color: 'var(--color-agent-product)' },
-  'Sales AI':     { code: 'Hunter',        role: 'Revenue & Pipeline Risk',  color: 'var(--color-agent-sales)' },
-  'Strategy AI':  { code: 'General',       role: 'Strategic Synthesis',      color: 'var(--color-agent-strategy)' },
+  'Marketing AI': { code: 'Watcher',      role: 'Positioning & Perception', icon: '👁️', color: 'var(--color-agent-marketing)' },
+  'Product AI':   { code: 'Archaeologist', role: 'Product Strength',         icon: '🔬', color: 'var(--color-agent-product)' },
+  'Sales AI':     { code: 'Hunter',        role: 'Revenue & Pipeline Risk',  icon: '🎯', color: 'var(--color-agent-sales)' },
+  'Strategy AI':  { code: 'General',       role: 'Strategic Synthesis',      icon: '🧠', color: 'var(--color-agent-strategy)' },
 };
 
 const VERDICT_STYLE = {
-  THREAT:      { color: 'var(--color-threat)',  bg: 'rgba(255,59,59,0.08)',  border: 'rgba(255,59,59,0.3)' },
-  OPPORTUNITY: { color: 'var(--color-stable)',  bg: 'rgba(0,230,118,0.08)', border: 'rgba(0,230,118,0.3)' },
-  NEUTRAL:     { color: 'var(--color-neutral)', bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)' },
+  THREAT:      { color: 'var(--color-threat)',  bg: 'rgba(255,59,59,0.08)',    border: 'rgba(255,59,59,0.3)',    icon: '⚠', glow: 'rgba(255,59,59,0.15)' },
+  OPPORTUNITY: { color: 'var(--color-stable)',  bg: 'rgba(0,230,118,0.08)',   border: 'rgba(0,230,118,0.3)',   icon: '✦', glow: 'rgba(0,230,118,0.15)' },
+  NEUTRAL:     { color: 'var(--color-neutral)', bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', icon: '●', glow: 'rgba(100,116,139,0.15)' },
 };
 
-function AgentCard({ verdict }) {
-  const [open, setOpen] = useState(false);
-  const meta = AGENTS[verdict.agent_name] || { code: '—', role: '', color: 'var(--color-neutral)' };
+/* ────────────────────────────────────────────────────────────────────────────
+   Agent Verdict Card — Full detail visible by default
+   ──────────────────────────────────────────────────────────────────────────── */
+function AgentVerdictCard({ verdict }) {
+  const meta = AGENTS[verdict.agent_name] || { code: '—', role: '', icon: '🤖', color: 'var(--color-neutral)' };
   const vs = VERDICT_STYLE[verdict.verdict] || VERDICT_STYLE.NEUTRAL;
   const conf = Math.round((verdict.confidence || 0) * 100);
 
+  // Parse evidence — handle both JSON string and array
+  let evidence = [];
+  if (Array.isArray(verdict.evidence)) {
+    evidence = verdict.evidence;
+  } else if (typeof verdict.evidence === 'string') {
+    try {
+      const parsed = JSON.parse(verdict.evidence);
+      evidence = Array.isArray(parsed) ? parsed : (parsed?.points || []);
+    } catch { evidence = []; }
+  } else if (verdict.evidence_json) {
+    try {
+      const parsed = JSON.parse(verdict.evidence_json);
+      evidence = Array.isArray(parsed) ? parsed : (parsed?.points || []);
+    } catch { evidence = []; }
+  }
+
   return (
     <div
-      className="card"
-      style={{ borderLeft: `3px solid ${meta.color}`, cursor: 'pointer' }}
-      onClick={() => setOpen(!open)}
+      className="card agent-verdict-card animate-fade-in"
+      style={{
+        borderLeft: `3px solid ${meta.color}`,
+        background: `linear-gradient(135deg, var(--color-ooda-surface), ${vs.bg})`,
+      }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full pulse-dot" style={{ background: meta.color }} />
+      {/* Header: Agent name + Verdict badge */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xl">{meta.icon}</span>
           <div>
-            <span className="text-xs font-bold" style={{ color: meta.color }}>{meta.code}</span>
-            <span className="text-[10px] text-[var(--color-ooda-text-dim)] ml-1.5">{verdict.agent_name}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold" style={{ color: meta.color }}>{meta.code}</span>
+              <span className="text-[10px] text-[var(--color-ooda-text-dim)]">{verdict.agent_name}</span>
+            </div>
+            <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-0.5">{meta.role}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end gap-1">
           <span
-            className="badge"
+            className="badge badge-lg"
             style={{ background: vs.bg, color: vs.color, border: `1px solid ${vs.border}` }}
           >
-            {verdict.verdict || 'NEUTRAL'}
+            {vs.icon} {verdict.verdict || 'NEUTRAL'}
           </span>
-          <span className="text-[10px] font-mono font-bold text-[var(--color-ooda-text-muted)]">{conf}%</span>
+          {verdict.urgency && (
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: verdict.urgency === 'CRITICAL' ? 'var(--color-threat)' : verdict.urgency === 'HIGH' ? 'var(--color-warning)' : 'var(--color-ooda-text-dim)' }}>
+              {verdict.urgency} urgency
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Role */}
-      <p className="text-[10px] text-[var(--color-ooda-text-dim)] mt-1">{meta.role}</p>
-
-      {/* Expanded */}
-      {open && (
-        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--color-ooda-border)' }}>
-          {/* Reasoning */}
-          {verdict.reasoning && (
-            <div className="mb-3">
-              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1">Reasoning</div>
-              <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{verdict.reasoning}</p>
-            </div>
-          )}
-
-          {/* Evidence */}
-          {verdict.evidence?.length > 0 && (
-            <div className="mb-3">
-              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1">Evidence</div>
-              <div className="flex flex-col gap-1">
-                {verdict.evidence.map((e, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="text-[var(--color-ooda-accent)] text-[10px] mt-0.5">•</span>
-                    <span className="text-xs text-[var(--color-ooda-text-muted)]">{e}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recommended Action */}
-          {verdict.recommended_action && (
+      {/* Confidence Bar */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase tracking-wider font-semibold">
+            Confidence
+          </span>
+          <span className="text-xs font-mono font-bold" style={{ color: meta.color }}>{conf}%</span>
+        </div>
+        <div className="confidence-bar-container">
+          <div className="confidence-bar-track">
             <div
-              className="rounded-lg p-2.5"
-              style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
-            >
-              <div className="text-[9px] uppercase font-bold tracking-wider mb-1" style={{ color: meta.color }}>
-                Recommended Action
-              </div>
-              <p className="text-xs text-[var(--color-ooda-text)] font-medium">{verdict.recommended_action}</p>
-            </div>
-          )}
+              className="confidence-bar-fill"
+              style={{
+                width: `${conf}%`,
+                background: `linear-gradient(90deg, ${meta.color}, ${meta.color}88)`,
+                boxShadow: conf >= 60 ? `0 0 8px ${meta.color}40` : 'none',
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
-          {/* Urgency */}
-          {verdict.urgency && (
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold">Urgency:</span>
-              <span className="badge badge-warning text-[9px]">{verdict.urgency}</span>
-            </div>
-          )}
+      {/* Reasoning — always visible */}
+      {verdict.reasoning && (
+        <div className="mb-3">
+          <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1">Reasoning</div>
+          <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{verdict.reasoning}</p>
+        </div>
+      )}
+
+      {/* Evidence — always visible */}
+      {evidence.length > 0 && (
+        <div className="mb-3">
+          <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1.5">Evidence</div>
+          <div className="flex flex-col gap-1.5">
+            {evidence.map((e, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: meta.color }} />
+                <span className="text-xs text-[var(--color-ooda-text-muted)]">{typeof e === 'string' ? e : JSON.stringify(e)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recommended Action — always visible */}
+      {verdict.recommended_action && (
+        <div
+          className="rounded-lg p-3"
+          style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}
+        >
+          <div className="text-[9px] uppercase font-bold tracking-wider mb-1" style={{ color: meta.color }}>
+            ⚡ Recommended Action
+          </div>
+          <p className="text-xs text-[var(--color-ooda-text)] font-medium">{verdict.recommended_action}</p>
         </div>
       )}
     </div>
   );
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   Strategy AI Verdict — Hero Card
+   ──────────────────────────────────────────────────────────────────────────── */
 function StrategyVerdictCard({ debate }) {
   if (!debate) return null;
   const vs = VERDICT_STYLE[debate.final_verdict] || VERDICT_STYLE.NEUTRAL;
@@ -116,87 +154,126 @@ function StrategyVerdictCard({ debate }) {
   const entropy = Math.round(debate.market_entropy_score || 0);
 
   return (
-    <div
-      className="card"
-      style={{
-        background: `linear-gradient(135deg, var(--color-ooda-surface), ${vs.bg})`,
-        borderColor: vs.border,
-      }}
-    >
-      <div className="text-center mb-4">
-        <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-widest mb-2">
-          Strategy AI — Final Verdict
-        </div>
-        <div className="text-2xl font-black tracking-tight" style={{ color: vs.color }}>
-          {debate.final_verdict || 'PENDING'}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="genome-stat">
-          <span className="genome-stat-value font-mono" style={{ color: vs.color }}>{conf}%</span>
-          <span className="genome-stat-label">Confidence</span>
-        </div>
-        <div className="genome-stat">
-          <span className="genome-stat-value font-mono text-[var(--color-ooda-accent)]">{entropy}</span>
-          <span className="genome-stat-label">Entropy</span>
-        </div>
-        <div className="genome-stat">
-          <span className="genome-stat-value font-mono text-[var(--color-warning)]">{debate.threat_level || '—'}</span>
-          <span className="genome-stat-label">Threat</span>
-        </div>
-      </div>
-
-      {/* Conflict */}
-      {debate.conflict_summary && (
-        <div className="rounded-xl p-3 mb-3" style={{ background: 'var(--color-ooda-surface-elevated)', border: '1px solid var(--color-ooda-border)' }}>
-          <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1">
-            {debate.conflict_detected ? '⚡ Conflict Detected' : 'Consensus'}
+    <div className="animate-fade-in">
+      {/* Hero Verdict */}
+      <div
+        className="verdict-hero card"
+        style={{
+          background: `linear-gradient(135deg, var(--color-ooda-surface), ${vs.bg})`,
+          borderColor: vs.border,
+          boxShadow: `0 0 40px -8px ${vs.glow}`,
+        }}
+      >
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-[0.2em] mb-3">
+            🧠 Strategy AI — Final Verdict
           </div>
-          <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{debate.conflict_summary}</p>
-        </div>
-      )}
-
-      {/* Strategic Reasoning */}
-      {debate.strategic_reasoning && (
-        <div className="mb-3">
-          <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1">Strategic Reasoning</div>
-          <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{debate.strategic_reasoning}</p>
-        </div>
-      )}
-
-      {/* Recommended Action */}
-      {debate.recommended_action && (
-        <div
-          className="rounded-xl p-3"
-          style={{ background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.15)' }}
-        >
-          <div className="text-[9px] text-[var(--color-ooda-accent)] uppercase font-bold tracking-wider mb-1">
-            Recommended Action
+          <div className="verdict-text" style={{ color: vs.color }}>
+            {vs.icon} {debate.final_verdict || 'PENDING'}
           </div>
-          <p className="text-xs text-[var(--color-ooda-text)] font-semibold">{debate.recommended_action}</p>
-        </div>
-      )}
 
-      {/* Next Actions */}
-      {debate.next_best_actions?.length > 0 && (
-        <div className="mt-3">
-          <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1.5">Next Actions</div>
-          <div className="flex flex-col gap-1">
-            {debate.next_best_actions.map((a, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="text-[var(--color-ooda-accent)] text-[10px] font-bold">{i + 1}.</span>
-                <span className="text-xs text-[var(--color-ooda-text-muted)]">{a}</span>
+          {/* Stats Row */}
+          <div className="flex items-center justify-center gap-6 mt-4">
+            <div className="text-center">
+              <div className="text-lg font-mono font-black" style={{ color: vs.color }}>{conf}%</div>
+              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">Confidence</div>
+            </div>
+            <div style={{ width: '1px', height: '32px', background: 'var(--color-ooda-border)' }} />
+            <div className="text-center">
+              <div className="text-lg font-mono font-black text-[var(--color-ooda-accent)]">{entropy}</div>
+              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">Entropy</div>
+            </div>
+            <div style={{ width: '1px', height: '32px', background: 'var(--color-ooda-border)' }} />
+            <div className="text-center">
+              <div className="text-lg font-mono font-black text-[var(--color-warning)]">{debate.threat_level || '—'}</div>
+              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">Threat</div>
+            </div>
+          </div>
+
+          {/* Confidence Bar */}
+          <div className="mt-4 max-w-sm mx-auto">
+            <div className="confidence-bar-container">
+              <div className="confidence-bar-track">
+                <div
+                  className="confidence-bar-fill"
+                  style={{
+                    width: `${conf}%`,
+                    background: `linear-gradient(90deg, ${vs.color}, ${vs.color}88)`,
+                    boxShadow: `0 0 12px ${vs.glow}`,
+                  }}
+                />
               </div>
-            ))}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Detail Cards */}
+      <div className="responsive-split mt-4">
+        {/* Left: Reasoning & Conflict */}
+        <div className="flex flex-col gap-3">
+          {/* Conflict */}
+          {debate.conflict_summary && (
+            <div className="card" style={{ borderColor: debate.conflict_detected ? 'rgba(245,158,11,0.3)' : 'var(--color-ooda-border)' }}>
+              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1.5">
+                {debate.conflict_detected ? '⚡ Conflict Detected' : '✓ Consensus Reached'}
+              </div>
+              <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{debate.conflict_summary}</p>
+            </div>
+          )}
+
+          {/* Strategic Reasoning */}
+          {debate.strategic_reasoning && (
+            <div className="card">
+              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-1.5">Strategic Reasoning</div>
+              <p className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{debate.strategic_reasoning}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Actions */}
+        <div className="flex flex-col gap-3">
+          {/* Recommended Action */}
+          {debate.recommended_action && (
+            <div
+              className="card"
+              style={{ background: 'rgba(0,212,255,0.04)', borderColor: 'rgba(0,212,255,0.15)' }}
+            >
+              <div className="text-[9px] text-[var(--color-ooda-accent)] uppercase font-bold tracking-wider mb-1.5">
+                ⚡ Recommended Action
+              </div>
+              <p className="text-sm text-[var(--color-ooda-text)] font-semibold">{debate.recommended_action}</p>
+            </div>
+          )}
+
+          {/* Next Actions */}
+          {debate.next_best_actions?.length > 0 && (
+            <div className="card">
+              <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-2">Next Best Actions</div>
+              <div className="flex flex-col gap-2">
+                {debate.next_best_actions.map((a, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <span
+                      className="text-[10px] font-bold font-mono flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
+                      style={{ background: 'rgba(0,212,255,0.1)', color: 'var(--color-ooda-accent)' }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="text-xs text-[var(--color-ooda-text-muted)] leading-relaxed">{a}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   Main Debate Page
+   ──────────────────────────────────────────────────────────────────────────── */
 export default function Debate() {
   const [signal, setSignal]       = useState(null);
   const [verdicts, setVerdicts]   = useState([]);
@@ -229,6 +306,7 @@ export default function Debate() {
         try {
           const vRes = await getLatestVerdicts();
           if (vRes.data?.verdicts) setVerdicts(vRes.data.verdicts);
+          else if (Array.isArray(vRes.data)) setVerdicts(vRes.data);
         } catch {}
       }
     } catch {
@@ -283,11 +361,9 @@ export default function Debate() {
       )}
 
       {/* Header */}
-      <div className="animate-fade-in">
-        <h1 className="text-lg font-black tracking-tight">Agent Analysis</h1>
-        <p className="text-[11px] text-[var(--color-ooda-text-dim)] mt-0.5">
-          AI agents analyze signals from different business perspectives
-        </p>
+      <div className="animate-fade-in page-header">
+        <h1>Agent Analysis & Verdict</h1>
+        <p>AI agents analyze signals, then Strategy AI delivers the final verdict</p>
       </div>
 
       {/* Action Buttons */}
@@ -297,16 +373,23 @@ export default function Debate() {
           disabled={loading}
           className="btn-outline flex-1 text-[11px]"
         >
-          {loading ? '...' : '◆ Run Agents'}
+          {loading ? '⏳ Running...' : '◆ Run Agent Analysis'}
         </button>
         <button
           onClick={handleRunDebate}
           disabled={loading}
           className="btn-primary flex-1 text-[11px]"
         >
-          {loading ? '...' : '⚖ Run Debate'}
+          {loading ? '⏳ Running...' : '⚖ Run Full Debate'}
         </button>
       </div>
+
+      {/* Loading progress */}
+      {loading && (
+        <div className="progress-bar-track">
+          <div className="progress-bar-fill" />
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -340,38 +423,38 @@ export default function Debate() {
         </div>
       )}
 
-      {/* Agent Verdicts */}
+      {/* Agent Verdicts — Full detail, responsive grid */}
       {agentVerdicts.length > 0 && (
         <>
-          <div className="section-label">Agent Verdicts</div>
-          {agentVerdicts.map((v, i) => (
-            <div key={v.agent_name} className="animate-fade-in" style={{ animationDelay: `${i * 0.08}s` }}>
-              <AgentCard verdict={v} />
-            </div>
-          ))}
+          <div className="section-label">Agent Verdicts — {agentVerdicts.length} analyses</div>
+          <div className="responsive-grid-2">
+            {agentVerdicts.map((v, i) => (
+              <div key={v.agent_name || i} style={{ animationDelay: `${i * 0.08}s` }}>
+                <AgentVerdictCard verdict={v} />
+              </div>
+            ))}
+          </div>
         </>
       )}
 
       {/* Strategy AI Verdict */}
       {debate && (
         <>
-          <div className="section-label">Strategy AI Verdict</div>
-          <div className="animate-fade-in">
-            <StrategyVerdictCard debate={debate} />
-          </div>
+          <div className="section-label mt-2">Strategy AI — Final Verdict</div>
+          <StrategyVerdictCard debate={debate} />
         </>
       )}
 
       {/* Empty State */}
       {!loadingData && !loading && verdicts.length === 0 && !error && (
         <div className="card text-center py-12 animate-fade-in animate-delay-2">
-          <div className="text-3xl mb-3 opacity-30">◆</div>
+          <div className="text-4xl mb-3 opacity-30">◆</div>
           <h3 className="text-base font-semibold text-[var(--color-ooda-text)]">
             No Analysis Yet
           </h3>
-          <p className="text-xs text-[var(--color-ooda-text-dim)] mt-2 max-w-xs mx-auto">
-            Click "Run Agents" to have Marketing AI, Product AI, and Sales AI analyze the latest signal.
-            Then click "Run Debate" for Strategy AI's final verdict.
+          <p className="text-xs text-[var(--color-ooda-text-dim)] mt-2 max-w-sm mx-auto leading-relaxed">
+            Click <strong>"Run Agent Analysis"</strong> to have Marketing AI, Product AI, and Sales AI analyze the latest signal.
+            Then click <strong>"Run Full Debate"</strong> for Strategy AI's final verdict with conflict detection and recommended actions.
           </p>
         </div>
       )}

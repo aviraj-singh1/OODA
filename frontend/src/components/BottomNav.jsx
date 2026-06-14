@@ -1,15 +1,17 @@
 /**
- * BottomNav — Phase 6: Clean 5-tab mobile navigation.
+ * BottomNav — Phase 8: Mobile-only bottom navigation (hidden on desktop via CSS).
+ * 6-tab navigation with active indicator.
  */
 
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/',                label: 'Home',    icon: '⌘' },
-  { to: '/signals',         label: 'Signals', icon: '◉' },
-  { to: '/debate',          label: 'Agents',  icon: '◆' },
-  { to: '/counter-strike',  label: 'Strike',  icon: '⚡' },
-  { to: '/rivals',          label: 'Rivals',  icon: '◎' },
+  { to: '/',               label: 'Home',    icon: '⌘' },
+  { to: '/signals',        label: 'Signals', icon: '◉' },
+  { to: '/entropy',        label: 'Entropy', icon: '◈' },
+  { to: '/debate',         label: 'Agents',  icon: '◆' },
+  { to: '/counter-strike', label: 'Strike',  icon: '⚡' },
+  { to: '/rivals',         label: 'Rivals',  icon: '◎' },
 ];
 
 export default function BottomNav() {
@@ -22,7 +24,7 @@ export default function BottomNav() {
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all no-underline ${
+              `flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all no-underline ${
                 isActive
                   ? 'text-[var(--color-ooda-accent)]'
                   : 'text-[var(--color-ooda-text-dim)] hover:text-[var(--color-ooda-text-muted)]'
@@ -35,7 +37,7 @@ export default function BottomNav() {
                   {item.icon}
                 </span>
                 <span
-                  className="text-[9px] font-bold tracking-wider uppercase"
+                  className="text-[8px] font-bold tracking-wider uppercase"
                   style={{ opacity: isActive ? 1 : 0.5 }}
                 >
                   {item.label}

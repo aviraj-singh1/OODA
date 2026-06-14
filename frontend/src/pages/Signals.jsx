@@ -1,5 +1,7 @@
 /**
- * Signals — Phase 6: Full signal list with proper states.
+ * Signals — Phase 8: Responsive signal intelligence page.
+ * Desktop: 2-col grid for signals, 3-col stats.
+ * Mobile: Single column.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -29,27 +31,25 @@ export default function Signals() {
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="animate-fade-in">
-        <h1 className="text-lg font-black tracking-tight">Signal Intelligence</h1>
-        <p className="text-[11px] text-[var(--color-ooda-text-dim)] mt-0.5">
-          All detected competitor signals — newest first
-        </p>
+      <div className="animate-fade-in page-header">
+        <h1>Signal Intelligence</h1>
+        <p>All detected competitor signals — newest first</p>
       </div>
 
       {/* Signal Count */}
       {!loading && !error && signals.length > 0 && (
-        <div className="flex gap-2 animate-fade-in animate-delay-1">
-          <div className="card flex-1 text-center py-2.5">
+        <div className="responsive-grid-3 animate-fade-in animate-delay-1">
+          <div className="card text-center py-2.5">
             <div className="text-base font-black font-mono text-[var(--color-ooda-accent)]">{signals.length}</div>
             <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">Total</div>
           </div>
-          <div className="card flex-1 text-center py-2.5">
+          <div className="card text-center py-2.5">
             <div className="text-base font-black font-mono text-[var(--color-threat)]">
               {signals.filter(s => s.severity === 'HIGH').length}
             </div>
             <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">High</div>
           </div>
-          <div className="card flex-1 text-center py-2.5">
+          <div className="card text-center py-2.5">
             <div className="text-base font-black font-mono text-[var(--color-ooda-text-muted)]">
               {[...new Set(signals.map(s => s.competitor_name || s.competitor_id))].length}
             </div>
@@ -78,7 +78,7 @@ export default function Signals() {
       {/* Signal List */}
       {!loading && !error && (
         <div className="animate-fade-in animate-delay-2">
-          <SignalFeed signals={signals} />
+          <SignalFeed signals={signals} gridMode />
         </div>
       )}
     </div>

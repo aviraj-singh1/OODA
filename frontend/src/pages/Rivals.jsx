@@ -1,5 +1,7 @@
 /**
- * Rivals — Phase 6: Polished competitor genome intelligence page.
+ * Rivals — Phase 8: Responsive competitor genome page.
+ * Desktop: 2-col grid for genome cards.
+ * Mobile: Stacked layout.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -135,11 +137,9 @@ export default function Rivals() {
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="animate-fade-in">
-        <h1 className="text-lg font-black tracking-tight">Rivals</h1>
-        <p className="text-[11px] text-[var(--color-ooda-text-dim)] mt-0.5">
-          Competitor genome profiles — threat assessment & pricing intel
-        </p>
+      <div className="animate-fade-in page-header">
+        <h1>Rivals</h1>
+        <p>Competitor genome profiles — threat assessment & pricing intel</p>
       </div>
 
       {/* Loading */}
@@ -158,18 +158,18 @@ export default function Rivals() {
       {/* Summary */}
       {!loading && !error && genomes.length > 0 && (
         <>
-          <div className="flex gap-2 animate-fade-in animate-delay-1">
-            <div className="card flex-1 text-center py-2.5">
+          <div className="responsive-grid-3 animate-fade-in animate-delay-1">
+            <div className="card text-center py-2.5">
               <div className="text-base font-black font-mono text-[var(--color-ooda-accent)]">{genomes.length}</div>
               <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">Tracked</div>
             </div>
-            <div className="card flex-1 text-center py-2.5">
+            <div className="card text-center py-2.5">
               <div className="text-base font-black font-mono text-[var(--color-threat)]">
                 {genomes.filter(g => g.threat_level === 'CRITICAL' || g.threat_level === 'HIGH').length}
               </div>
               <div className="text-[9px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">High Threat</div>
             </div>
-            <div className="card flex-1 text-center py-2.5">
+            <div className="card text-center py-2.5">
               <div className="text-base font-black font-mono text-[var(--color-ooda-text-muted)]">
                 {genomes.reduce((s, g) => s + g.total_signals, 0)}
               </div>
@@ -177,12 +177,14 @@ export default function Rivals() {
             </div>
           </div>
 
-          {/* Genome Cards */}
-          {genomes.map((genome, i) => (
-            <div key={genome.competitor_id} className="animate-fade-in" style={{ animationDelay: `${(i + 1) * 0.08}s` }}>
-              <GenomeCard genome={genome} />
-            </div>
-          ))}
+          {/* Genome Cards — responsive grid */}
+          <div className="responsive-grid-2">
+            {genomes.map((genome, i) => (
+              <div key={genome.competitor_id} className="animate-fade-in" style={{ animationDelay: `${(i + 1) * 0.08}s` }}>
+                <GenomeCard genome={genome} />
+              </div>
+            ))}
+          </div>
         </>
       )}
 

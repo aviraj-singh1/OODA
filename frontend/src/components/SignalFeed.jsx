@@ -1,6 +1,6 @@
 /**
- * SignalFeed — Phase 6: Polished signal cards with value change display.
- * Supports compact mode for dashboard preview.
+ * SignalFeed — Phase 8: Responsive signal cards with grid mode support.
+ * gridMode: renders 2-col grid on desktop.
  */
 
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +29,7 @@ function getTypeLabel(type) {
   return labels[type] || type?.replace(/_/g, ' ') || 'Signal';
 }
 
-export default function SignalFeed({ signals = [], compact = false, onSignalClick }) {
+export default function SignalFeed({ signals = [], compact = false, onSignalClick, gridMode = false }) {
   const navigate = useNavigate();
 
   if (signals.length === 0) {
@@ -43,7 +43,7 @@ export default function SignalFeed({ signals = [], compact = false, onSignalClic
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className={`signal-feed-grid ${gridMode ? 'grid-mode' : ''}`}>
       {signals.map((signal, i) => (
         <div
           key={signal.id}

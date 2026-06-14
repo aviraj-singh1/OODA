@@ -1,6 +1,7 @@
 /**
- * CounterStrike — Phase 6: Polished Counter-Strike build + deploy page.
- * Shows package status, 5 expandable asset cards, deploy button, deployment log.
+ * CounterStrike — Phase 8: Responsive counter-strike build + deploy page.
+ * Desktop: Status card + assets in 2-col grid.
+ * Mobile: Stacked layout.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -211,11 +212,9 @@ export default function CounterStrike() {
       )}
 
       {/* Header */}
-      <div className="animate-fade-in">
-        <h1 className="text-lg font-black tracking-tight">Counter-Strike</h1>
-        <p className="text-[11px] text-[var(--color-ooda-text-dim)] mt-0.5">
-          Generated response package — ready to deploy
-        </p>
+      <div className="animate-fade-in page-header">
+        <h1>Counter-Strike</h1>
+        <p>Generated response package — ready to deploy</p>
       </div>
 
       {/* Loading */}
@@ -269,16 +268,16 @@ export default function CounterStrike() {
               </div>
 
               {/* Quick stats */}
-              <div className="flex gap-2 mb-3">
-                <div className="genome-stat flex-1">
+              <div className="responsive-grid-3 mb-3">
+                <div className="genome-stat">
                   <span className="genome-stat-value text-[var(--color-ooda-accent)]">5</span>
                   <span className="genome-stat-label">Assets</span>
                 </div>
-                <div className="genome-stat flex-1">
+                <div className="genome-stat">
                   <span className="genome-stat-value text-[var(--color-threat)]">{pkg.threat_level || 'HIGH'}</span>
                   <span className="genome-stat-label">Threat</span>
                 </div>
-                <div className="genome-stat flex-1">
+                <div className="genome-stat">
                   <span className="genome-stat-value" style={{ color: isDeployed ? 'var(--color-stable)' : 'var(--color-warning)' }}>
                     {isDeployed ? 'LIVE' : 'READY'}
                   </span>
@@ -317,15 +316,17 @@ export default function CounterStrike() {
             </div>
           )}
 
-          {/* Asset Cards */}
+          {/* Asset Cards — responsive grid */}
           {assets && (
             <>
               <div className="section-label animate-fade-in animate-delay-2">Generated Assets</div>
-              {ASSETS.map((config, i) => (
-                <div key={config.key} className="animate-fade-in" style={{ animationDelay: `${(i + 2) * 0.06}s` }}>
-                  <AssetCard asset={assets[config.key]} config={config} />
-                </div>
-              ))}
+              <div className="responsive-grid-2">
+                {ASSETS.map((config, i) => (
+                  <div key={config.key} className="animate-fade-in" style={{ animationDelay: `${(i + 2) * 0.06}s` }}>
+                    <AssetCard asset={assets[config.key]} config={config} />
+                  </div>
+                ))}
+              </div>
             </>
           )}
 
