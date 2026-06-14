@@ -1,7 +1,7 @@
 /**
- * Dashboard — Phase 6: Main command center.
- * Shows market entropy, active alert, quick actions, signal feed preview.
- * Designed to immediately tell judges: "Something happened. OODA caught it."
+ * Dashboard — Phase 7: Main command center.
+ * Shows market entropy, active alert, quick actions, signal feed preview,
+ * live intelligence status panel, and full demo flow automation.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -11,6 +11,7 @@ import SignalFeed from '../components/SignalFeed';
 import {
   getSignals, getCurrentEntropy, getReputations,
   seedDemo, triggerPriceDrop,
+  getIngestionStatus, runLiveIngestion, runFullDemoFlow,
 } from '../services/api';
 
 const AGENT_META = {
@@ -30,6 +31,14 @@ export default function Dashboard() {
   const [triggering, setTriggering] = useState(false);
   const [toast, setToast]           = useState(null);
   const [showDemo, setShowDemo]     = useState(false);
+
+  // Phase 7 state
+  const [ingestionStatus, setIngestionStatus] = useState(null);
+  const [scanning, setScanning]     = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const [runningFlow, setRunningFlow] = useState(false);
+  const [flowResult, setFlowResult] = useState(null);
+
   const navigate = useNavigate();
 
   const showToast = (msg, type = 'success') => {
@@ -54,7 +63,16 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchIngestionStatus = useCallback(async () => {
+    try {
+      const res = await getIngestionStatus();
+      setIngestionStatus(res.data);
+    } catch {
+      // Silent fail — ingestion status is optional
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); fetchIngestionStatus(); }, [fetchData, fetchIngestionStatus]);
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -82,9 +100,59 @@ export default function Dashboard() {
     }
   };
 
+  // Phase 7: Live Scan
+  const handleLiveScan = async () => {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const res = await runLiveIngestion();
+      setScanResult(res.data);
+      await fetchData();
+      const count = res.data?.signals_created || 0;
+      if (count > 0) {
+        showToast(`✓ ${count} live signal${count > 1 ? 's' : ''} found`);
+      } else {
+        showToast('No live signals found — demo mode fallback still active');
+      }
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Live scan failed', 'error');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // Phase 7: Full OODA Flow
+  const handleFullFlow = async () => {
+    setRunningFlow(true);
+    setFlowResult(null);
+    try {
+      const res = await runFullDemoFlow();
+      setFlowResult(res.data);
+      await fetchData();
+      showToast('✓ Full OODA flow prepared!');
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Full flow failed', 'error');
+    } finally {
+      setRunningFlow(false);
+    }
+  };
+
   const latestHighSignal = signals.find(s => s.severity === 'HIGH');
   const hasSignals = signals.length > 0;
   const entropyScore = entropy?.score || 0;
+
+  // Helper: source status row
+  const StatusRow = ({ label, connected }) => (
+    <div className="live-intel-row">
+      <div className="live-intel-label">
+        <span className={`status-dot ${connected ? 'status-dot-connected' : 'status-dot-missing'}`} />
+        {label}
+      </div>
+      <div className="live-intel-value" style={{ color: connected ? 'var(--color-stable)' : 'var(--color-ooda-text-dim)' }}>
+        {connected ? 'Connected' : 'Not configured'}
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -117,25 +185,144 @@ export default function Dashboard() {
 
       {/* Demo Controls (collapsible) */}
       {showDemo && (
-        <div className="card animate-fade-in" style={{ borderColor: 'rgba(0,212,255,0.15)' }}>
-          <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-2">
-            Demo Controls
+        <div className="flex flex-col gap-3 animate-fade-in">
+          {/* Original Demo Controls */}
+          <div className="card" style={{ borderColor: 'rgba(0,212,255,0.15)' }}>
+            <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider mb-2">
+              Demo Controls
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSeed}
+                disabled={seeding || triggering || runningFlow}
+                className="btn-outline flex-1 text-[11px]"
+              >
+                {seeding ? '...' : '⟳ Seed Data'}
+              </button>
+              <button
+                onClick={handleTrigger}
+                disabled={seeding || triggering || runningFlow}
+                className="btn-primary btn-danger flex-1 text-[11px] py-2"
+              >
+                {triggering ? '...' : '⚡ Price Drop'}
+              </button>
+            </div>
+
+            {/* Full OODA Flow Button */}
+            <div className="mt-3">
+              <button
+                onClick={handleFullFlow}
+                disabled={runningFlow || scanning}
+                className="btn-primary w-full text-[11px] py-2.5"
+              >
+                {runningFlow ? '⏳ Running Full OODA Flow...' : '🚀 Run Full OODA Flow'}
+              </button>
+              {runningFlow && (
+                <div className="progress-bar-track mt-2">
+                  <div className="progress-bar-fill" />
+                </div>
+              )}
+            </div>
+
+            {/* Full Flow Result */}
+            {flowResult && (
+              <div className="result-card result-card-success mt-3 animate-fade-in">
+                <div className="text-[10px] uppercase font-bold text-[var(--color-stable)] mb-2">
+                  ✓ Flow Complete
+                </div>
+                <div className="flex flex-col gap-1.5 text-[11px] text-[var(--color-ooda-text-muted)]">
+                  <div>Entropy: <span className="font-mono font-bold text-[var(--color-ooda-text)]">{flowResult.entropy_score}</span></div>
+                  <div>Agents: {flowResult.agent_verdicts?.length || 0} verdicts</div>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => navigate('/debate')} className="btn-outline flex-1 text-[10px] py-1.5">
+                      View Debate
+                    </button>
+                    <button onClick={() => navigate('/counter-strike')} className="btn-outline flex-1 text-[10px] py-1.5">
+                      Counter-Strike
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleSeed}
-              disabled={seeding || triggering}
-              className="btn-outline flex-1 text-[11px]"
-            >
-              {seeding ? '...' : '⟳ Seed Data'}
-            </button>
-            <button
-              onClick={handleTrigger}
-              disabled={seeding || triggering}
-              className="btn-primary btn-danger flex-1 text-[11px] py-2"
-            >
-              {triggering ? '...' : '⚡ Price Drop'}
-            </button>
+
+          {/* Live Intelligence Panel */}
+          <div className="live-intel-panel animate-fade-in">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] text-[var(--color-ooda-text-dim)] uppercase font-bold tracking-wider">
+                Live Intelligence
+              </div>
+              {ingestionStatus && (
+                <span className={`badge-source badge-${ingestionStatus.data_mode || 'hybrid'}`}>
+                  {ingestionStatus.data_mode || 'hybrid'}
+                </span>
+              )}
+            </div>
+
+            <p className="text-[10px] text-[var(--color-ooda-text-dim)] mb-3 leading-relaxed">
+              Live Scan checks configured public sources and converts findings into OODA signals.
+            </p>
+
+            {/* Status Rows */}
+            {ingestionStatus ? (
+              <>
+                <StatusRow label="LLM (Ollama)" connected={ingestionStatus.ollama_configured} />
+                <StatusRow label="LLM (OpenRouter)" connected={ingestionStatus.openrouter_configured} />
+                <StatusRow label="NewsAPI" connected={ingestionStatus.newsapi_configured} />
+                <StatusRow label="SerpAPI" connected={ingestionStatus.serpapi_configured} />
+                <StatusRow label="GitHub" connected={ingestionStatus.github_configured} />
+                <StatusRow label="Web Watcher" connected={ingestionStatus.web_watcher_available} />
+              </>
+            ) : (
+              <div className="text-[11px] text-[var(--color-ooda-text-dim)] py-2">
+                Loading status...
+              </div>
+            )}
+
+            {/* Live Scan Button */}
+            <div className="mt-3">
+              <button
+                onClick={handleLiveScan}
+                disabled={scanning || runningFlow}
+                className="btn-outline w-full text-[11px]"
+              >
+                {scanning ? '⏳ Scanning...' : '🔍 Run Live Scan'}
+              </button>
+              {scanning && (
+                <div className="progress-bar-track mt-2">
+                  <div className="progress-bar-fill" />
+                </div>
+              )}
+            </div>
+
+            {/* Scan Result */}
+            {scanResult && !scanning && (
+              <div className="result-card mt-3 animate-fade-in">
+                <div className="text-[11px] text-[var(--color-ooda-text-muted)]">
+                  {scanResult.signals_created > 0 ? (
+                    <span className="text-[var(--color-stable)] font-semibold">
+                      ✓ {scanResult.signals_created} live signal{scanResult.signals_created > 1 ? 's' : ''} found
+                    </span>
+                  ) : (
+                    <span>No live signals found — demo mode fallback still active</span>
+                  )}
+                  {scanResult.warnings?.length > 0 && (
+                    <div className="mt-1.5 text-[10px] text-[var(--color-ooda-text-dim)]">
+                      {scanResult.warnings.slice(0, 3).map((w, i) => (
+                        <div key={i}>• {w}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state if no APIs configured */}
+            {ingestionStatus && !ingestionStatus.newsapi_configured && !ingestionStatus.serpapi_configured && !ingestionStatus.github_configured && (
+              <div className="text-[10px] text-[var(--color-ooda-text-dim)] mt-2 italic">
+                Live sources not configured yet. Demo mode is active.
+              </div>
+            )}
           </div>
         </div>
       )}

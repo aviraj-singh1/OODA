@@ -1,7 +1,7 @@
 /**
- * OODA API Service
+ * OODA API Service — Phase 7
  * Centralized API client for all backend endpoints.
- * Phase 4: Added debate engine endpoints.
+ * Phase 7: Added ingestion, live scan, and full demo flow endpoints.
  */
 
 import axios from 'axios';
@@ -18,6 +18,7 @@ const api = axios.create({
 
 export const seedDemo = () => api.post('/demo/seed');
 export const triggerPriceDrop = () => api.post('/demo/trigger-price-drop');
+export const runFullDemoFlow = () => api.post('/demo/run-full-flow');
 
 // ── Signals ─────────────────────────────────────────────────────────────────────
 
@@ -69,5 +70,10 @@ export const getCompetitors = () => api.get('/competitors');
 export const getCompetitor = (id) => api.get(`/competitors/${id}`);
 export const getCompetitorGenomes = () => api.get('/competitors/genomes');
 export const getCompetitorGenome = (id) => api.get(`/competitors/${id}/genome`);
+
+// ── Ingestion (Phase 7) ─────────────────────────────────────────────────────────
+
+export const runLiveIngestion = () => api.post('/ingestion/live/run');
+export const getIngestionStatus = () => api.get('/ingestion/status');
 
 export default api;

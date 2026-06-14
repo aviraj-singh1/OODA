@@ -62,14 +62,31 @@ const URGENCY_STYLES = {
 };
 
 function parseEvidence(evidenceJson) {
-  if (!evidenceJson) return [];
-  if (Array.isArray(evidenceJson)) return evidenceJson;
+  if (!evidenceJson) return { points: [], generatedBy: null };
+  if (Array.isArray(evidenceJson)) return { points: evidenceJson, generatedBy: null };
   try {
     const parsed = JSON.parse(evidenceJson);
-    return Array.isArray(parsed) ? parsed : [];
+    // New Phase 7 format: { points: [...], generated_by: "..." }
+    if (parsed && parsed.points && Array.isArray(parsed.points)) {
+      return { points: parsed.points, generatedBy: parsed.generated_by || null };
+    }
+    // Old format: plain array
+    if (Array.isArray(parsed)) return { points: parsed, generatedBy: null };
+    return { points: [], generatedBy: null };
   } catch {
-    return [];
+    return { points: [], generatedBy: null };
   }
+}
+
+function GeneratedByLabel({ generatedBy }) {
+  if (!generatedBy) return null;
+  const labels = {
+    ollama: { text: 'Ollama', className: 'generated-by generated-by-ollama' },
+    openrouter: { text: 'OpenRouter', className: 'generated-by generated-by-openrouter' },
+    demo_fallback: { text: 'Demo Fallback', className: 'generated-by generated-by-fallback' },
+  };
+  const cfg = labels[generatedBy] || labels.demo_fallback;
+  return <span className={cfg.className}>⚡ {cfg.text}</span>;
 }
 
 function ConfidenceBar({ confidence, color }) {
@@ -173,7 +190,7 @@ export default function AgentDebateView({ verdicts = [], loading = false }) {
           bgGlow: 'rgba(0, 212, 255, 0.08)',
           borderGlow: 'rgba(0, 212, 255, 0.25)',
         };
-        const evidence = parseEvidence(v.evidence_json);
+        const { points: evidence, generatedBy } = parseEvidence(v.evidence_json);
         const isExpanded = expandedIdx === idx;
 
         return (
@@ -207,6 +224,7 @@ export default function AgentDebateView({ verdicts = [], loading = false }) {
                       <span className="text-[10px] text-[var(--color-ooda-text-dim)] font-medium">
                         {v.agent_name}
                       </span>
+                      <GeneratedByLabel generatedBy={generatedBy} />
                     </div>
                   </div>
                 </div>

@@ -18,6 +18,7 @@ from backend.api.routes.entropy import router as entropy_router
 from backend.api.routes.agents import router as agents_router
 from backend.api.routes.debate import router as debate_router
 from backend.api.routes.counter_strike import router as counter_strike_router
+from backend.api.routes.ingestion import router as ingestion_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,6 +53,7 @@ app.include_router(entropy_router)
 app.include_router(agents_router)
 app.include_router(debate_router)
 app.include_router(counter_strike_router)
+app.include_router(ingestion_router)
 
 
 

@@ -184,6 +184,11 @@ class DebateEngine:
 
         saved = []
         for v in agent_verdicts:
+            generated_by = v.pop("_generated_by", "demo_fallback")
+            evidence_data = {
+                "points": v["evidence"],
+                "generated_by": generated_by,
+            }
             db_verdict = crud.create_verdict(
                 db=db,
                 id=crud._generate_id("vrd"),
@@ -193,7 +198,7 @@ class DebateEngine:
                 verdict=v["verdict"],
                 confidence=v["confidence"],
                 reasoning=v["reasoning"],
-                evidence_json=json.dumps(v["evidence"]),
+                evidence_json=json.dumps(evidence_data),
                 recommended_action=v["recommended_action"],
                 urgency=v["urgency"],
                 reputation_weight=v["reputation_weight"],

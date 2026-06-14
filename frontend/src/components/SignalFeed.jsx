@@ -100,12 +100,22 @@ export default function SignalFeed({ signals = [], compact = false, onSignalClic
             </div>
           )}
 
-          {/* Source + Analyze button */}
+          {/* Source + Badge + Analyze button */}
           {!compact && (
             <div className="flex items-center justify-between mt-2.5">
-              <span className="text-[10px] text-[var(--color-ooda-text-dim)] capitalize">
-                via {signal.source?.replaceAll('_', ' ')}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--color-ooda-text-dim)] capitalize">
+                  via {signal.source?.replaceAll('_', ' ')}
+                </span>
+                <span className={`badge-source ${
+                  ['demo_seed', 'web_watcher'].includes(signal.source) && signal.id?.startsWith('sig_0')
+                    ? 'badge-demo' : signal.source === 'web_watcher' ? 'badge-hybrid'
+                    : ['newsapi', 'serpapi', 'github'].includes(signal.source) ? 'badge-live'
+                    : 'badge-demo'
+                }`}>
+                  {['newsapi', 'serpapi', 'github'].includes(signal.source) ? 'Live' : 'Demo'}
+                </span>
+              </div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
