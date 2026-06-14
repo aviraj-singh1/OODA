@@ -1,9 +1,12 @@
 """
-OODA LLM Client — Phase 7
-Unified LLM interface with fallback chain:
-  1. Ollama (local open-source model)
-  2. OpenRouter (cloud fallback)
-  3. Deterministic demo response (guaranteed fallback)
+OODA LLM Client — Phase 8
+Unified LLM interface with provider-controlled fallback chain.
+
+Provider priority is determined by LLM_PROVIDER setting:
+  - "openrouter" → OpenRouter → demo fallback
+  - "ollama"     → Ollama → demo fallback
+  - "auto"       → OpenRouter (if key) → Ollama → demo fallback
+  - DATA_MODE="demo" → skip LLM, use demo fallback directly
 
 Never crashes. Always returns valid JSON.
 """
@@ -68,29 +71,83 @@ class LLMClient:
         )
         full_system = system_prompt + json_instruction
 
-        # Priority 1: Ollama (local)
-        if settings.DATA_MODE != "demo":
-            result = self._try_ollama(full_system, user_prompt)
+        # If demo mode, skip all LLM calls
+        if settings.DATA_MODE == "demo":
+            logger.info("DATA_MODE=demo — using deterministic fallback")
+            fallback_copy = dict(fallback)
+            fallback_copy["_generated_by"] = "demo_fallback"
+            return fallback_copy
+
+        provider = settings.LLM_PROVIDER
+
+        # ── Provider: openrouter ──────────────────────────────────────────
+        if provider == "openrouter":
+            result = self._try_openrouter_safe(full_system, user_prompt)
             if result is not None:
-                result["_generated_by"] = "ollama"
-                logger.info("LLM response from: Ollama (%s)", settings.OLLAMA_MODEL)
                 return result
+            # OpenRouter failed → demo fallback (no Ollama attempt)
+            logger.info("OpenRouter failed — using demo fallback")
+            fallback_copy = dict(fallback)
+            fallback_copy["_generated_by"] = "demo_fallback"
+            return fallback_copy
 
-        # Priority 2: OpenRouter (cloud)
-        if settings.DATA_MODE != "demo":
-            api_key = settings.OPENROUTER_API_KEY or settings.LLM_API_KEY
-            if api_key:
-                result = self._try_openrouter(full_system, user_prompt, api_key)
-                if result is not None:
-                    result["_generated_by"] = "openrouter"
-                    logger.info("LLM response from: OpenRouter (%s)", settings.OPENROUTER_MODEL)
-                    return result
+        # ── Provider: ollama ──────────────────────────────────────────────
+        if provider == "ollama":
+            result = self._try_ollama_safe(full_system, user_prompt)
+            if result is not None:
+                return result
+            # Ollama failed → demo fallback (no OpenRouter attempt)
+            logger.info("Ollama failed — using demo fallback")
+            fallback_copy = dict(fallback)
+            fallback_copy["_generated_by"] = "demo_fallback"
+            return fallback_copy
 
-        # Priority 3: Deterministic fallback
-        logger.info("LLM response from: Demo Fallback (no LLM available)")
+        # ── Provider: auto (default) ──────────────────────────────────────
+        # Try OpenRouter first if key exists
+        result = self._try_openrouter_safe(full_system, user_prompt)
+        if result is not None:
+            return result
+
+        # Then try Ollama
+        result = self._try_ollama_safe(full_system, user_prompt)
+        if result is not None:
+            return result
+
+        # All failed → demo fallback
+        logger.info("All LLM providers failed — using demo fallback")
         fallback_copy = dict(fallback)
         fallback_copy["_generated_by"] = "demo_fallback"
         return fallback_copy
+
+    # ── Safe wrappers ─────────────────────────────────────────────────────
+
+    def _try_openrouter_safe(
+        self, system_prompt: str, user_prompt: str
+    ) -> Optional[dict]:
+        """Try OpenRouter, return tagged dict or None."""
+        api_key = settings.OPENROUTER_API_KEY or settings.LLM_API_KEY
+        if not api_key:
+            logger.warning("OpenRouter API key not configured — skipping")
+            return None
+
+        result = self._try_openrouter(system_prompt, user_prompt, api_key)
+        if result is not None:
+            result["_generated_by"] = "openrouter"
+            model = settings.OPENROUTER_MODEL or settings.LLM_MODEL
+            logger.info("LLM response from: OpenRouter (%s)", model)
+            return result
+        return None
+
+    def _try_ollama_safe(
+        self, system_prompt: str, user_prompt: str
+    ) -> Optional[dict]:
+        """Try Ollama, return tagged dict or None."""
+        result = self._try_ollama(system_prompt, user_prompt)
+        if result is not None:
+            result["_generated_by"] = "ollama"
+            logger.info("LLM response from: Ollama (%s)", settings.OLLAMA_MODEL)
+            return result
+        return None
 
     # ── Provider implementations ──────────────────────────────────────────
 
@@ -129,9 +186,14 @@ class LLMClient:
         try:
             url = f"{settings.LLM_BASE_URL.rstrip('/')}/chat/completions"
             model = settings.OPENROUTER_MODEL or settings.LLM_MODEL
+
+            logger.info("Using OpenRouter model: %s", model)
+
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
+                "HTTP-Referer": settings.OPENROUTER_SITE_URL,
+                "X-OpenRouter-Title": settings.OPENROUTER_APP_NAME,
             }
             payload = {
                 "model": model,
@@ -142,13 +204,28 @@ class LLMClient:
                 "temperature": 0.3,
                 "max_tokens": 1024,
             }
-            response = self._http.post(url, json=payload, headers=headers, timeout=15.0)
+            response = self._http.post(url, json=payload, headers=headers, timeout=30.0)
             response.raise_for_status()
             data = response.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            return self._parse_json(content)
+
+            if not content:
+                logger.warning("OpenRouter returned empty content — skipping")
+                return None
+
+            result = self._parse_json(content)
+            if result is None:
+                logger.warning("Invalid JSON from OpenRouter — using demo fallback")
+            return result
+
         except httpx.TimeoutException:
             logger.warning("OpenRouter request timed out — skipping")
+            return None
+        except httpx.HTTPStatusError as e:
+            logger.warning(
+                "OpenRouter HTTP error %s — skipping",
+                e.response.status_code if e.response else "unknown",
+            )
             return None
         except Exception as e:
             logger.warning("OpenRouter error: %s — skipping", str(e))
@@ -159,7 +236,7 @@ class LLMClient:
     def _parse_json(self, text: str) -> Optional[dict]:
         """
         Parse JSON from LLM response text.
-        Attempts repair if initial parse fails (strips markdown fences, etc.).
+        Attempts multi-stage repair if initial parse fails.
         """
         if not text or not text.strip():
             return None
@@ -182,7 +259,7 @@ class LLMClient:
         except json.JSONDecodeError:
             pass
 
-        # Attempt 3: Find JSON object in text
+        # Attempt 3: Find first JSON object in text
         match = re.search(r"\{[\s\S]*\}", text)
         if match:
             try:
@@ -191,6 +268,26 @@ class LLMClient:
                     return result
             except json.JSONDecodeError:
                 pass
+
+        # Attempt 4: Try finding the outermost balanced braces
+        depth = 0
+        start_idx = None
+        for i, ch in enumerate(text):
+            if ch == "{":
+                if depth == 0:
+                    start_idx = i
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0 and start_idx is not None:
+                    candidate = text[start_idx : i + 1]
+                    try:
+                        result = json.loads(candidate)
+                        if isinstance(result, dict):
+                            return result
+                    except json.JSONDecodeError:
+                        pass
+                    break
 
         logger.warning("Failed to parse valid JSON from LLM response")
         return None

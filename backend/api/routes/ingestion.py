@@ -1,5 +1,5 @@
 """
-Ingestion Routes — Phase 7: Live API ingestion endpoints.
+Ingestion Routes — Phase 8: Live API ingestion + LLM provider status.
 """
 
 from fastapi import APIRouter, Depends
@@ -26,7 +26,7 @@ def trigger_live_ingestion(db: Session = Depends(get_db)):
 @router.get("/status")
 def get_ingestion_status():
     """
-    Return the configuration status of all data sources.
+    Return the configuration status of all data sources and LLM provider.
     Does NOT expose actual API key values — only shows configured/missing.
     """
     # Check Ollama availability (quick ping)
@@ -34,11 +34,13 @@ def get_ingestion_status():
 
     return {
         "data_mode": settings.DATA_MODE,
+        "llm_provider": settings.LLM_PROVIDER,
+        "llm_model": settings.OPENROUTER_MODEL or settings.LLM_MODEL,
+        "openrouter_configured": bool(settings.OPENROUTER_API_KEY or settings.LLM_API_KEY),
         "ollama_configured": ollama_configured,
         "ollama_model": settings.OLLAMA_MODEL if ollama_configured else None,
-        "openrouter_configured": bool(settings.OPENROUTER_API_KEY or settings.LLM_API_KEY),
         "newsapi_configured": bool(settings.NEWS_API_KEY),
         "serpapi_configured": bool(settings.SERPAPI_KEY),
         "github_configured": bool(settings.GITHUB_TOKEN),
-        "web_watcher_available": True,  # Always available (just needs competitor URLs)
+        "web_watcher_available": True,
     }
